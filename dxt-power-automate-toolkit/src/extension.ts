@@ -79,7 +79,7 @@ export async function activate(context: vscode.ExtensionContext) {
       const runnerPath = path.join(workspaceRoot, 'flow-runner.js');
       const terminal = vscode.window.createTerminal(`Flow: ${flowName}`);
       terminal.show();
-      terminal.sendText(`node "${runnerPath}" --flow "${flowPath}"`);
+      terminal.sendText(`node "${runnerPath}" "${flowPath}"`);
     })
   );
 }
