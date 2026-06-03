@@ -3,6 +3,7 @@ import * as path from 'path';
 import { PowerAutomateTreeProvider, PowerAutomateNode } from './treeProvider';
 import { exportAndUnpack, packAndImport, initPacPath } from './pacCli';
 import { initLogger, info, error } from './log';
+import { openFlowVisualizer } from './flowVisualizer';
 
 export async function activate(context: vscode.ExtensionContext) {
   initLogger(context);
@@ -10,6 +11,17 @@ export async function activate(context: vscode.ExtensionContext) {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
   const solutionsRoot = workspaceRoot ? path.join(workspaceRoot, 'solutions') : undefined;
   const provider = new PowerAutomateTreeProvider(solutionsRoot);
+
+  // #4 status bar — shows which environment is currently active
+  const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  statusBar.text = '$(server) Power Automate';
+  statusBar.tooltip = 'Expand an environment in the Power Automate Toolkit panel to set active';
+  statusBar.show();
+  context.subscriptions.push(statusBar);
+  provider.onEnvSelected(env => {
+    statusBar.text = `$(server) ${env.FriendlyName}`;
+    statusBar.tooltip = env.EnvironmentUrl;
+  });
 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('dxt-power-automate.treeView', provider),
@@ -76,6 +88,12 @@ export async function activate(context: vscode.ExtensionContext) {
       const terminal = vscode.window.createTerminal(`Flow: ${flowName}`);
       terminal.show();
       terminal.sendText(`node "${runnerPath}" "${flowPath}"`);
+    }),
+
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.viewFlow', (node: PowerAutomateNode) => {
+      const { flowPath } = node.payload ?? {};
+      if (!flowPath) { return; }
+      openFlowVisualizer(context, flowPath);
     })
   );
 }

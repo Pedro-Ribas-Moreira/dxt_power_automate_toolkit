@@ -30,10 +30,8 @@ export class PowerAutomateNode extends vscode.TreeItem {
       case 'environment':
         return new vscode.ThemeIcon('server', new vscode.ThemeColor('charts.blue'));
       case 'solution':
-        // cloud-only — orange nudges the user to export it
         return new vscode.ThemeIcon('package', new vscode.ThemeColor('charts.orange'));
       case 'solution-local':
-        // exported locally — green means ready
         return new vscode.ThemeIcon('folder', new vscode.ThemeColor('charts.green'));
       case 'flow':
         return new vscode.ThemeIcon('play-circle', new vscode.ThemeColor('charts.purple'));
@@ -46,6 +44,9 @@ export class PowerAutomateNode extends vscode.TreeItem {
 export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerAutomateNode> {
   private _onDidChangeTreeData = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+
+  private _onEnvSelected = new vscode.EventEmitter<PacEnvironment>();
+  readonly onEnvSelected = this._onEnvSelected.event;
 
   constructor(private readonly solutionsRoot: string | undefined) {}
 
@@ -83,12 +84,19 @@ export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerA
   private async fetchSolutions(envNode: PowerAutomateNode): Promise<PowerAutomateNode[]> {
     const env = envNode.payload?.environment;
     if (!env) { return []; }
+
+    // Notify status bar of the active environment
+    this._onEnvSelected.fire(env);
+
     try {
       const solutions = await listSolutions(env.EnvironmentUrl);
       if (!solutions.length) { return [infoNode('No solutions found')]; }
       return solutions.map(sol => {
         const localDir = this.solutionsRoot ? path.join(this.solutionsRoot, sol.SolutionUniqueName) : undefined;
         const isLocal = localDir ? fs.existsSync(localDir) : false;
+        const hasChanges = isLocal && localDir
+          ? hasUnimportedChanges(localDir, this.solutionsRoot!, sol.SolutionUniqueName)
+          : false;
         const kind: NodeKind = isLocal ? 'solution-local' : 'solution';
         const node = new PowerAutomateNode(
           sol.FriendlyName,
@@ -96,8 +104,13 @@ export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerA
           isLocal ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
           { solution: sol, envUrl: env.EnvironmentUrl, solutionLocalDir: localDir ?? '' }
         );
-        node.description = isLocal ? `v${sol.VersionNumber} ✓` : `v${sol.VersionNumber}`;
-        node.tooltip = sol.SolutionUniqueName;
+        // #5 diff indicator: bullet means local changes not yet imported
+        node.description = isLocal
+          ? `v${sol.VersionNumber} ✓${hasChanges ? ' ●' : ''}`
+          : `v${sol.VersionNumber}`;
+        node.tooltip = hasChanges
+          ? `${sol.SolutionUniqueName}\n⚠ Local changes not yet imported`
+          : sol.SolutionUniqueName;
         return node;
       });
     } catch (e: any) {
@@ -110,15 +123,38 @@ export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerA
     if (!dir) { return []; }
     const flows = listLocalFlows(dir);
     if (!flows.length) { return [infoNode('No flows in Workflows/ folder')]; }
-    return flows.map(name => {
-      const flowPath = path.join(dir, 'Workflows', `${name}.json`);
-      const node = new PowerAutomateNode(name, 'flow', vscode.TreeItemCollapsibleState.None, { flowPath });
-      node.tooltip = flowPath;
+    return flows.map(rawName => {
+      const flowPath = path.join(dir, 'Workflows', `${rawName}.json`);
+      // #2 strip trailing GUID from display name
+      const displayName = rawName.replace(/-[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/i, '');
+      const node = new PowerAutomateNode(displayName, 'flow', vscode.TreeItemCollapsibleState.None, { flowPath });
+      node.tooltip = rawName;
       return node;
     });
   }
 
   getSolutionsRoot(): string | undefined { return this.solutionsRoot; }
+}
+
+// #5 — returns true if any Workflow file is newer than the last export/import zip
+function hasUnimportedChanges(solutionDir: string, solutionsRoot: string, solutionName: string): boolean {
+  try {
+    const zips = [
+      path.join(solutionsRoot, `${solutionName}_packed.zip`),
+      path.join(solutionsRoot, `${solutionName}.zip`),
+    ];
+    let baseline = 0;
+    for (const z of zips) {
+      if (fs.existsSync(z)) { baseline = Math.max(baseline, fs.statSync(z).mtimeMs); }
+    }
+    if (baseline === 0) { return false; }
+
+    const workflowsDir = path.join(solutionDir, 'Workflows');
+    if (!fs.existsSync(workflowsDir)) { return false; }
+    return fs.readdirSync(workflowsDir).some(f =>
+      fs.statSync(path.join(workflowsDir, f)).mtimeMs > baseline
+    );
+  } catch { return false; }
 }
 
 function infoNode(label: string): PowerAutomateNode {

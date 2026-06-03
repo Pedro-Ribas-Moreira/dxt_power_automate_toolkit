@@ -52,6 +52,12 @@
         "title": "Run Flow Locally",
         "icon": "$(play)",
         "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.viewFlow",
+        "title": "Visualize Flow",
+        "icon": "$(eye)",
+        "category": "Power Automate"
       }
     ],
     "configuration": {
@@ -89,9 +95,14 @@
           "group": "inline"
         },
         {
+          "command": "dxt-power-automate-toolkit.viewFlow",
+          "when": "view == dxt-power-automate.treeView && viewItem == flow",
+          "group": "inline@1"
+        },
+        {
           "command": "dxt-power-automate-toolkit.runFlow",
           "when": "view == dxt-power-automate.treeView && viewItem == flow",
-          "group": "inline"
+          "group": "inline@2"
         }
       ]
     }
