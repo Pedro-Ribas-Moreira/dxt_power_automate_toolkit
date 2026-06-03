@@ -1,0 +1,123 @@
+{
+  "name": "dxt-power-automate-toolkit",
+  "displayName": "DXT Power Automate Toolkit",
+  "description": "Local development toolkit for Power Automate solutions",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.120.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dxt-power-automate",
+          "title": "Power Automate Toolkit",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "dxt-power-automate": [
+        {
+          "id": "dxt-power-automate.treeView",
+          "name": "Environments",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "dxt-power-automate-toolkit.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.exportSolution",
+        "title": "Export & Unpack Solution",
+        "icon": "$(cloud-download)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.importSolution",
+        "title": "Pack & Import Solution",
+        "icon": "$(cloud-upload)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.runFlow",
+        "title": "Run Flow Locally",
+        "icon": "$(play)",
+        "category": "Power Automate"
+      }
+    ],
+    "configuration": {
+      "title": "DXT Power Automate Toolkit",
+      "properties": {
+        "dxt-power-automate.pacCliPath": {
+          "type": "string",
+          "default": "",
+          "description": "Full path to pac.exe. Leave empty to auto-detect. Run '(Get-Command pac).Source' in your terminal to find it."
+        }
+      }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "dxt-power-automate-toolkit.refresh",
+          "when": "view == dxt-power-automate.treeView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "dxt-power-automate-toolkit.exportSolution",
+          "when": "view == dxt-power-automate.treeView && viewItem == solution",
+          "group": "inline"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.exportSolution",
+          "when": "view == dxt-power-automate.treeView && viewItem == solution-local",
+          "group": "inline"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.importSolution",
+          "when": "view == dxt-power-automate.treeView && viewItem == solution-local",
+          "group": "inline"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.runFlow",
+          "when": "view == dxt-power-automate.treeView && viewItem == flow",
+          "group": "inline"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.120.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.56.1",
+    "eslint": "^9.39.3",
+    "typescript": "^5.9.3",
+    "ts-loader": "^9.5.4",
+    "webpack": "^5.105.3",
+    "webpack-cli": "^6.0.1",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
