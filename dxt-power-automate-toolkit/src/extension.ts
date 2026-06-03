@@ -71,12 +71,8 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('dxt-power-automate-toolkit.runFlow', async (node: PowerAutomateNode) => {
       const { flowPath } = node.payload ?? {};
       if (!flowPath) { return; }
-      if (!workspaceRoot) {
-        vscode.window.showWarningMessage('Open a workspace folder to run flows.');
-        return;
-      }
       const flowName = path.basename(flowPath, '.json');
-      const runnerPath = path.join(workspaceRoot, 'flow-runner.js');
+      const runnerPath = path.join(context.extensionPath, 'flow-runner.js');
       const terminal = vscode.window.createTerminal(`Flow: ${flowName}`);
       terminal.show();
       terminal.sendText(`node "${runnerPath}" "${flowPath}"`);
