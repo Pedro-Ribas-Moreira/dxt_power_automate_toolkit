@@ -3,10 +3,13 @@
   "displayName": "DXT Power Automate Toolkit",
   "description": "Local development toolkit for Power Automate solutions",
   "version": "0.0.1",
+  "publisher": "prepaypower-dta",
   "engines": {
     "vscode": "^1.120.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
@@ -25,6 +28,11 @@
           "id": "dxt-power-automate.treeView",
           "name": "Environments",
           "icon": "resources/icon.svg"
+        },
+        {
+          "id": "dxt-power-automate.libraryView",
+          "name": "Action Library",
+          "icon": "resources/icon.svg"
         }
       ]
     },
@@ -33,6 +41,36 @@
         "command": "dxt-power-automate-toolkit.refresh",
         "title": "Refresh",
         "icon": "$(refresh)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.buildLibrary",
+        "title": "Build Library from Local Solutions",
+        "icon": "$(refresh)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.deepScan",
+        "title": "Deep Scan — Fetch & Index Solutions",
+        "icon": "$(cloud-download)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.filterLibrary",
+        "title": "Search Library",
+        "icon": "$(search)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.copySnippet",
+        "title": "Copy Snippet",
+        "icon": "$(copy)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.newSolution",
+        "title": "New Solution",
+        "icon": "$(add)",
         "category": "Power Automate"
       },
       {
@@ -58,6 +96,24 @@
         "title": "Visualize Flow",
         "icon": "$(eye)",
         "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.importMockData",
+        "title": "Import Mock Data",
+        "icon": "$(database)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.openInBrowser",
+        "title": "Open in Browser",
+        "icon": "$(link-external)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.navigateFromUrl",
+        "title": "Go to Flow or Solution from URL…",
+        "icon": "$(search)",
+        "category": "Power Automate"
       }
     ],
     "configuration": {
@@ -73,9 +129,24 @@
     "menus": {
       "view/title": [
         {
-          "command": "dxt-power-automate-toolkit.refresh",
+          "command": "dxt-power-automate-toolkit.navigateFromUrl",
           "when": "view == dxt-power-automate.treeView",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.filterLibrary",
+          "when": "view == dxt-power-automate.libraryView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.deepScan",
+          "when": "view == dxt-power-automate.libraryView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.buildLibrary",
+          "when": "view == dxt-power-automate.libraryView",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -100,9 +171,39 @@
           "group": "inline@1"
         },
         {
+          "command": "dxt-power-automate-toolkit.importMockData",
+          "when": "view == dxt-power-automate.treeView && viewItem == flow",
+          "group": "inline@1"
+        },
+        {
           "command": "dxt-power-automate-toolkit.runFlow",
           "when": "view == dxt-power-automate.treeView && viewItem == flow",
+          "group": "inline@3"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.openInBrowser",
+          "when": "view == dxt-power-automate.treeView && viewItem == flow",
+          "group": "inline@4"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.openInBrowser",
+          "when": "view == dxt-power-automate.treeView && viewItem == solution",
           "group": "inline@2"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.openInBrowser",
+          "when": "view == dxt-power-automate.treeView && viewItem == solution-local",
+          "group": "inline@3"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.copySnippet",
+          "when": "view == dxt-power-automate.libraryView && viewItem == operation",
+          "group": "inline"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.copySnippet",
+          "when": "view == dxt-power-automate.libraryView && viewItem == example",
+          "group": "inline"
         }
       ]
     }
@@ -119,16 +220,20 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.120.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "typescript-eslint": "^8.56.1",
-    "eslint": "^9.39.3",
-    "typescript": "^5.9.3",
-    "ts-loader": "^9.5.4",
-    "webpack": "^5.105.3",
-    "webpack-cli": "^6.0.1",
+    "@types/vscode": "^1.120.0",
     "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.39.3",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1",
+    "webpack": "^5.105.3",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
   }
 }

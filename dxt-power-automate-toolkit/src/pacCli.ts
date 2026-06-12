@@ -24,6 +24,7 @@ export interface PacSolution {
   SolutionUniqueName: string;
   FriendlyName: string;
   VersionNumber: string;
+  IsManaged: boolean;
 }
 
 let resolvedPacPath: string | null = null;
@@ -171,8 +172,10 @@ export async function exportAndUnpack(envUrl: string, solutionName: string, solu
   }
   const zipPath = path.join(solutionsRoot, `${solutionName}.zip`);
   const unpackDir = path.join(solutionsRoot, solutionName);
+  // Remove stale zip so pac doesn't refuse to overwrite it
+  if (fs.existsSync(zipPath)) { fs.unlinkSync(zipPath); }
   await runPacLong(['solution', 'export', '--environment', envUrl, '--name', solutionName, '--path', zipPath]);
-  await runPac(['solution', 'unpack', '--zipFile', zipPath, '--folder', unpackDir]);
+  await runPac(['solution', 'unpack', '--zipFile', zipPath, '--folder', unpackDir, '--allowDelete', 'true']);
 }
 
 export async function packAndImport(envUrl: string, solutionName: string, solutionLocalDir: string): Promise<void> {
@@ -188,3 +191,74 @@ export function listLocalFlows(solutionLocalDir: string): string[] {
     .filter(f => f.endsWith('.json'))
     .map(f => path.basename(f, '.json'));
 }
+
+export async function createSolution(
+  envUrl: string,
+  uniqueName: string,
+  displayName: string,
+  publisherPrefix: string,
+  publisherName: string,
+  solutionsRoot: string
+): Promise<void> {
+  const solutionDir = path.join(solutionsRoot, uniqueName);
+  const otherDir = path.join(solutionDir, 'Other');
+  fs.mkdirSync(otherDir, { recursive: true });
+
+  fs.writeFileSync(path.join(otherDir, 'Solution.xml'), solutionXml(uniqueName, displayName, publisherPrefix, publisherName), 'utf8');
+  fs.writeFileSync(path.join(otherDir, 'customizations.xml'), CUSTOMIZATIONS_XML, 'utf8');
+
+  const zipPath = path.join(solutionsRoot, `${uniqueName}_new.zip`);
+  await runPac(['solution', 'pack', '--zipFile', zipPath, '--folder', solutionDir]);
+  await runPacLong(['solution', 'import', '--environment', envUrl, '--path', zipPath]);
+}
+
+function solutionXml(uniqueName: string, displayName: string, publisherPrefix: string, publisherName: string): string {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml version="9.2.24021.183" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <SolutionManifest>
+    <UniqueName>${uniqueName}</UniqueName>
+    <LocalizedNames>
+      <LocalizedName description="${displayName}" languagecode="1033"/>
+    </LocalizedNames>
+    <Descriptions/>
+    <Version>1.0.0.0</Version>
+    <Managed>0</Managed>
+    <Publisher>
+      <UniqueName>${publisherPrefix}</UniqueName>
+      <LocalizedNames>
+        <LocalizedName description="${publisherName}" languagecode="1033"/>
+      </LocalizedNames>
+      <Descriptions/>
+      <EMailAddress/>
+      <SupportingWebsiteUrl/>
+      <CustomizationPrefix>${publisherPrefix}</CustomizationPrefix>
+      <CustomizationOptionValuePrefix>10000</CustomizationOptionValuePrefix>
+      <Addresses>
+        <Address>
+          <AddressNumber>1</AddressNumber>
+          <AddressTypeCode>1</AddressTypeCode>
+          <City/><County/><Country/><Fax/>
+          <FreightTermsCode/>
+          <ImportSequenceNumber>0</ImportSequenceNumber>
+          <Latitude>0</Latitude><Longitude>0</Longitude>
+          <Name/><PostalCode/><PrimaryContactName/>
+          <ShippingMethodCode>1</ShippingMethodCode>
+          <StateOrProvince/><Telephone1/><Telephone2/><Telephone3/>
+          <TimeZoneCode>0</TimeZoneCode>
+          <UPSZone/><UTCOffset>0</UTCOffset>
+          <Line1/><Line2/><Line3/>
+        </Address>
+      </Addresses>
+    </Publisher>
+    <RootComponents/>
+    <MissingDependencies/>
+  </SolutionManifest>
+</ImportExportXml>`;
+}
+
+const CUSTOMIZATIONS_XML = `<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml version="9.2.24021.183" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Entities/><Roles/><Workflows/><FieldSecurityProfiles/>
+  <Templates/><EntityMaps/><EntityRelationships/>
+  <OrganizationSettings/><optionsets/><CustomControls/><EntityDataProviders/>
+</ImportExportXml>`;

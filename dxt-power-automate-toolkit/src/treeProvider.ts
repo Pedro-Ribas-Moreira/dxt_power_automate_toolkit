@@ -9,6 +9,7 @@ export interface NodePayload {
   environment?: PacEnvironment;
   solution?: PacSolution;
   envUrl?: string;
+  envId?: string;          // EnvironmentIdentifier.Id — used in maker portal URLs
   solutionLocalDir?: string;
   flowPath?: string;
 }
@@ -102,7 +103,7 @@ export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerA
           sol.FriendlyName,
           kind,
           isLocal ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
-          { solution: sol, envUrl: env.EnvironmentUrl, solutionLocalDir: localDir ?? '' }
+          { solution: sol, envUrl: env.EnvironmentUrl, envId: env.EnvironmentIdentifier?.Id, solutionLocalDir: localDir ?? '' }
         );
         // #5 diff indicator: bullet means local changes not yet imported
         node.description = isLocal
@@ -123,11 +124,13 @@ export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerA
     if (!dir) { return []; }
     const flows = listLocalFlows(dir);
     if (!flows.length) { return [infoNode('No flows in Workflows/ folder')]; }
+    const envId = solNode.payload?.envId;
     return flows.map(rawName => {
       const flowPath = path.join(dir, 'Workflows', `${rawName}.json`);
-      // #2 strip trailing GUID from display name
+      // strip trailing GUID from display name
       const displayName = rawName.replace(/-[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/i, '');
-      const node = new PowerAutomateNode(displayName, 'flow', vscode.TreeItemCollapsibleState.None, { flowPath });
+      const node = new PowerAutomateNode(displayName, 'flow', vscode.TreeItemCollapsibleState.None,
+        { flowPath, solutionLocalDir: solNode.payload?.solutionLocalDir, envId });
       node.tooltip = rawName;
       return node;
     });
