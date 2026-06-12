@@ -606,6 +606,13 @@ async function runFlow(flowPath, mockPath, outputJson = false) {
     const handler = ACTION_HANDLERS[type] || ACTION_HANDLERS.__connector;
     let result;
 
+    // Resolve inputs before execution so we can show them in the visualizer
+    let resolvedInputs = null;
+    try {
+      const rawInputs = action.inputs ?? action.foreach;
+      resolvedInputs = rawInputs !== undefined ? resolveExpression(rawInputs, context) : null;
+    } catch {}
+
     try {
       result = handler(action, context);
     } catch (err) {
@@ -613,7 +620,7 @@ async function runFlow(flowPath, mockPath, outputJson = false) {
     }
 
     // Capture clean result before storing in context (spreading a string gives {"0":"N",...})
-    actionResults[name] = { status: result.status, output: result.output, error: result.error };
+    actionResults[name] = { status: result.status, output: result.output, error: result.error, inputs: resolvedInputs };
 
     // Store output — keep primitive values under __value to avoid spread corruption
     const outputObj = result.output !== null && result.output !== undefined && typeof result.output === 'object'

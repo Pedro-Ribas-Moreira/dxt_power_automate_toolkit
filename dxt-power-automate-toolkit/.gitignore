@@ -5,3 +5,4 @@ out/
 solutions/
 *.zip
 .vscode-test/
+.claude/

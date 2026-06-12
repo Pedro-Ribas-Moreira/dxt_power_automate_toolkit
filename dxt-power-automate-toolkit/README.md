@@ -1,71 +1,29 @@
-# dxt-power-automate-toolkit README
+# DXT Power Automate Toolkit
 
-This is the README for your extension "dxt-power-automate-toolkit". After writing up a brief description, we recommend including the following sections.
+Local development toolkit for Power Automate solutions at Prepay Power / DTA team.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+- **Browse environments & solutions** — connect to your Power Platform environment and see all solutions
+- **Export & unpack** — download a solution from the cloud and unpack it to editable JSON files
+- **Pack & import** — pack your local changes back and deploy to the environment
+- **Flow Visualizer** — open any flow as an interactive diagram; edit actions, add/delete steps, and insert conditions or loops without touching JSON
+- **Action Library** — browse and search all connectors and operations used across your org's flows, with real usage examples
+- **Claude AI context** — automatically generates a `CLAUDE.md` in your solutions folder so Claude Code understands your flows and connectors out of the box
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- [Power Platform CLI (`pac`)](https://learn.microsoft.com/en-us/power-platform/developer/cli/introduction) installed and authenticated
+- VS Code 1.120+
 
-## Extension Settings
+## Getting started
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+1. Install the extension from the `.vsix` file
+2. Click the **Power Automate Toolkit** icon in the activity bar
+3. Select your environment from the list
+4. Right-click a solution → **Export & Unpack**
+5. Open a flow → **Visualize Flow**
 
-For example:
+## Using with Claude Code
 
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+After exporting solutions, click **Build Library** in the Action Library panel. This indexes all your connectors and generates a `CLAUDE.md` in your solutions folder. Open that folder in Claude Code and Claude will automatically understand your flow structure and available connectors.
