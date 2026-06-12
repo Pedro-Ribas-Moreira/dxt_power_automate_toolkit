@@ -21,6 +21,7 @@ export interface PacEnvironment {
 }
 
 export interface PacSolution {
+  SolutionId?: string;       // GUID — present in some pac versions, used for URL matching
   SolutionUniqueName: string;
   FriendlyName: string;
   VersionNumber: string;

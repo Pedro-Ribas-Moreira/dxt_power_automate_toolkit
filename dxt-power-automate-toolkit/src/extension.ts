@@ -398,53 +398,163 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('dxt-power-automate-toolkit.navigateFromUrl', async () => {
       const input = await vscode.window.showInputBox({
         title: 'Go to Flow or Solution from URL',
-        prompt: 'Paste a Power Automate or Power Apps URL',
-        placeHolder: 'https://make.powerautomate.com/environments/.../flows/...',
+        prompt: 'Paste a Power Automate or Power Apps maker portal URL',
+        placeHolder: 'https://make.powerautomate.com/environments/.../solutions/.../flows/...',
         validateInput: v => v?.startsWith('http') ? undefined : 'Please paste a full URL starting with https://'
       });
       if (!input) { return; }
 
-      // Parse environment ID and flow GUID from the URL
+      // ── Parse all IDs from the URL ────────────────────────────────────────
+      const GUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
       const envMatch  = input.match(/\/environments\/([^/?#]+)/i);
+      const solMatch  = input.match(/\/solutions\/(' + GUID_RE.source + ')/i) ??
+                        input.match(/\/solutions\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
       const flowMatch = input.match(/\/flows\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
 
       if (!envMatch) {
-        vscode.window.showErrorMessage('Could not find an environment ID in the URL. Expected format: …/environments/{id}/…');
+        vscode.window.showErrorMessage('Could not find an environment ID in the URL. Expected format: …/environments/{guid}/…');
         return;
       }
 
-      const urlEnvId  = envMatch[1];
+      const urlEnvId  = envMatch[1].toLowerCase();
+      const urlSolId  = solMatch?.[1]?.toLowerCase();
       const urlFlowId = flowMatch?.[1]?.toLowerCase();
 
-      // ── Flow URL: find locally by GUID in filename ────────────────────────
+      // ── Step 1: if flow is already exported locally, open it directly ─────
       if (urlFlowId && solutionsRoot) {
         const found = findFlowFileByGuid(solutionsRoot, urlFlowId);
         if (found) {
-          info(`Navigating to flow from URL: ${found}`);
+          info(`URL navigation: found locally at ${found}`);
           openFlowVisualizer(context, found);
+          // Show which solution it belongs to
+          const solName = found.split(path.sep).reverse().find((_, i, arr) => arr[i + 1] === 'Workflows') ?? '';
+          vscode.window.showInformationMessage(`✅ Opened flow from solution: ${solName || 'local'}`);
+          provider.refresh();
           return;
         }
-        // Not found locally — tell the user what to do
-        vscode.window.showWarningMessage(
-          `Flow ${urlFlowId} is not exported locally yet. Expand the matching environment in the tree, find the solution that contains this flow, right-click it → Export & Unpack, then try again.`,
-          'Open in Browser'
-        ).then(choice => {
-          if (choice === 'Open in Browser') {
-            vscode.env.openExternal(vscode.Uri.parse(input));
-          }
-        });
+      }
+
+      // ── Step 2: load environments and find the matching one ───────────────
+      info('URL navigation: flow not found locally — loading environments…');
+      let envs: Awaited<ReturnType<typeof listEnvironments>>;
+      try {
+        envs = await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: 'URL navigation: loading environments…', cancellable: false },
+          () => listEnvironments()
+        );
+      } catch (e: any) {
+        error('URL navigation: could not load environments', e.message);
+        vscode.window.showErrorMessage('Could not load environments — is pac authenticated? Check the Output panel.');
         return;
       }
 
-      // ── Solution/environment URL: open in browser ─────────────────────────
-      vscode.window.showInformationMessage(
-        `URL parsed — environment ID: ${urlEnvId}. Opening in browser (expand the matching environment in the Environments panel to work with it locally).`,
-        'Open in Browser'
-      ).then(choice => {
-        if (choice === 'Open in Browser') {
-          vscode.env.openExternal(vscode.Uri.parse(input));
-        }
+      const matchedEnv = envs.find(e =>
+        e.EnvironmentIdentifier?.Id?.toLowerCase() === urlEnvId
+      );
+
+      if (!matchedEnv) {
+        vscode.window.showWarningMessage(
+          `Environment "${urlEnvId}" not found in your pac-authenticated environments. You may need to authenticate to the correct tenant.`,
+          'Open in Browser'
+        ).then(c => { if (c === 'Open in Browser') { vscode.env.openExternal(vscode.Uri.parse(input)); } });
+        return;
+      }
+
+      // ── Step 3: load solutions for that environment ───────────────────────
+      let solutions: (typeof envs[0] extends infer E ? any[] : any[]);
+      try {
+        solutions = await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: `Loading solutions from "${matchedEnv.FriendlyName}"…`, cancellable: false },
+          () => listSolutions(matchedEnv.EnvironmentUrl)
+        );
+      } catch (e: any) {
+        error('URL navigation: could not load solutions', e.message);
+        vscode.window.showErrorMessage('Could not load solutions — check the Output panel.');
+        return;
+      }
+
+      // ── Step 4: try to auto-match the solution by GUID ───────────────────
+      // pac solution list JSON may include SolutionId; if not, we fall back to QuickPick
+      const autoMatch = urlSolId
+        ? solutions.find((s: any) => s.SolutionId?.toLowerCase() === urlSolId)
+        : undefined;
+
+      const unmanagedSolutions = solutions.filter((s: any) => !s.IsManaged);
+      const picks = unmanagedSolutions.map((s: any) => {
+        const localDir = solutionsRoot ? path.join(solutionsRoot, s.SolutionUniqueName) : undefined;
+        const isLocal  = localDir ? fs.existsSync(localDir) : false;
+        const isMatch  = s.SolutionId?.toLowerCase() === urlSolId;
+        return {
+          label:       (isMatch ? '$(star-full) ' : '') + s.FriendlyName,
+          description: `v${s.VersionNumber}` + (isLocal ? ' ✓ local' : '') + (isMatch ? ' ← from URL' : ''),
+          detail:      s.SolutionUniqueName,
+          solution:    s,
+          isLocal,
+          picked:      !!isMatch
+        };
       });
+
+      const autoLabel = autoMatch
+        ? `Auto-matched: "${autoMatch.FriendlyName}" — export it now?`
+        : `Environment: ${matchedEnv.FriendlyName} — which solution contains this flow?`;
+
+      const picked = await vscode.window.showQuickPick(picks, {
+        title: autoLabel,
+        placeHolder: urlSolId ? `Solution ID from URL: ${urlSolId}` : 'Select the solution to export',
+      });
+      if (!picked) { return; }
+
+      if (picked.isLocal && solutionsRoot) {
+        // Already local — refresh tree and tell the user where to find it
+        provider.refresh();
+        vscode.window.showInformationMessage(
+          `✅ "${picked.solution.FriendlyName}" is already exported locally. Expand it in the Environments panel to find your flow.`
+        );
+        return;
+      }
+
+      if (!solutionsRoot) {
+        vscode.window.showWarningMessage('Open a workspace folder first so there is somewhere to export solutions into.');
+        return;
+      }
+
+      // ── Step 5: export the solution, then open the flow ───────────────────
+      const go = await vscode.window.showInformationMessage(
+        `Export & unpack "${picked.solution.FriendlyName}" from "${matchedEnv.FriendlyName}"?`,
+        { modal: true }, 'Export & Unpack'
+      );
+      if (go !== 'Export & Unpack') { return; }
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: `Exporting "${picked.solution.FriendlyName}"…`, cancellable: false },
+        async (progress) => {
+          progress.report({ message: 'See Output panel for live progress' });
+          try {
+            await exportAndUnpack(matchedEnv.EnvironmentUrl, picked.solution.SolutionUniqueName, solutionsRoot!);
+            const lib = buildLibrary(solutionsRoot!);
+            saveLibrary(lib, solutionsRoot!);
+            generateClaudeMd(lib, solutionsRoot!);
+            libProvider.setLibrary(lib);
+            provider.refresh();
+
+            // Try to open the flow now that it's exported
+            if (urlFlowId) {
+              const found = findFlowFileByGuid(solutionsRoot!, urlFlowId);
+              if (found) {
+                openFlowVisualizer(context, found);
+                vscode.window.showInformationMessage(`✅ Flow exported and opened from "${picked.solution.FriendlyName}"`);
+              } else {
+                vscode.window.showInformationMessage(`✅ "${picked.solution.FriendlyName}" exported. Expand it in the tree to find your flow.`);
+              }
+            } else {
+              vscode.window.showInformationMessage(`✅ "${picked.solution.FriendlyName}" exported successfully.`);
+            }
+          } catch (e: any) {
+            error(`URL navigation: export failed for ${picked.solution.SolutionUniqueName}`, e.message);
+            vscode.window.showErrorMessage(`Export failed: ${e.message}`);
+          }
+        }
+      );
     }),
 
     vscode.commands.registerCommand('dxt-power-automate-toolkit.newSolution', async () => {
