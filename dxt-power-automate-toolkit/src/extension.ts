@@ -568,13 +568,79 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showWarningMessage('No solutions folder found — export at least one solution first.');
         return;
       }
+
+      // Try to get an LM model for AI summaries (requires GitHub Copilot or similar)
+      let summarize: ((prompt: string) => Promise<string>) | undefined;
+      let modelLabel = '';
+      try {
+        const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
+        if (models.length) {
+          const model = models[0];
+          modelLabel = model.name || model.id;
+          summarize = async (prompt: string) => {
+            const msgs = [vscode.LanguageModelChatMessage.User(prompt)];
+            const res = await model.sendRequest(msgs, {});
+            let text = '';
+            for await (const chunk of res.text) { text += chunk; }
+            return text.trim();
+          };
+          info(`Doc generation: using LM "${modelLabel}" for AI summaries`);
+        } else {
+          vscode.window.showInformationMessage(
+            'No AI model available — generating docs without summaries. Install GitHub Copilot to add plain-English summaries.',
+            'Get Copilot'
+          ).then(c => { if (c === 'Get Copilot') { vscode.env.openExternal(vscode.Uri.parse('https://copilot.github.com')); } });
+        }
+      } catch (e: any) {
+        info(`Doc generation: LM unavailable (${e.message}) — proceeding without AI summaries`);
+      }
+
       const docsPath = path.join(solutionsRoot, '..', 'FLOWS.md');
-      const content = generateSolutionDocs(solutionsRoot);
-      fs.writeFileSync(docsPath, content, 'utf8');
-      info(`Docs generated: ${docsPath}`);
+      const MARKER_START = '<!-- PA-DOCS:START -->';
+      const MARKER_END = '<!-- PA-DOCS:END -->';
+
+      let generated = '';
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: summarize
+            ? `Generating docs with AI summaries (${modelLabel})…`
+            : 'Generating flow documentation…',
+          cancellable: false,
+        },
+        async (progress) => {
+          generated = await generateSolutionDocs(solutionsRoot!, summarize, (msg) => {
+            progress.report({ message: msg });
+          });
+        }
+      );
+
+      // Wrap generated content in markers so manual notes below are preserved on re-run
+      const block = `${MARKER_START}\n${generated}\n${MARKER_END}`;
+      let finalContent: string;
+
+      if (fs.existsSync(docsPath)) {
+        const existing = fs.readFileSync(docsPath, 'utf8');
+        const s = existing.indexOf(MARKER_START);
+        const e = existing.indexOf(MARKER_END);
+        if (s !== -1 && e !== -1 && e > s) {
+          // Replace between markers, keep everything else (manual notes, custom sections)
+          finalContent = existing.slice(0, s) + block + existing.slice(e + MARKER_END.length);
+        } else {
+          // First run on an existing file — prepend generated block, keep old content as notes
+          finalContent = block + '\n\n---\n\n## My Notes\n\n> ✏️ Write your custom notes here — they will be preserved on every re-generation.\n\n' + existing;
+        }
+      } else {
+        finalContent = block + '\n\n---\n\n## My Notes\n\n> ✏️ Write your custom notes here — they will be preserved on every re-generation.\n';
+      }
+
+      fs.writeFileSync(docsPath, finalContent, 'utf8');
+      info(`Docs written: ${docsPath}`);
       const doc = await vscode.workspace.openTextDocument(docsPath);
       await vscode.window.showTextDocument(doc);
-      vscode.window.showInformationMessage('✅ FLOWS.md generated in workspace root');
+      vscode.window.showInformationMessage(
+        summarize ? `✅ FLOWS.md updated with AI summaries` : `✅ FLOWS.md generated (no AI model — install Copilot to add summaries)`
+      );
     }),
 
     // ── Search flows across solutions ────────────────────────────────────────
