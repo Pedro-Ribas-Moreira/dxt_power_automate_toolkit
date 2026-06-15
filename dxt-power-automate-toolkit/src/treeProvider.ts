@@ -125,12 +125,13 @@ export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerA
     const flows = listLocalFlows(dir);
     if (!flows.length) { return [infoNode('No flows in Workflows/ folder')]; }
     const envId = solNode.payload?.envId;
+    const envUrl = solNode.payload?.envUrl;
     return flows.map(rawName => {
       const flowPath = path.join(dir, 'Workflows', `${rawName}.json`);
       // strip trailing GUID from display name
       const displayName = rawName.replace(/-[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/i, '');
       const node = new PowerAutomateNode(displayName, 'flow', vscode.TreeItemCollapsibleState.None,
-        { flowPath, solutionLocalDir: solNode.payload?.solutionLocalDir, envId });
+        { flowPath, solutionLocalDir: solNode.payload?.solutionLocalDir, envId, envUrl });
       node.tooltip = rawName;
       return node;
     });

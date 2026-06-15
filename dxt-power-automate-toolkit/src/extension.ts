@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { PowerAutomateTreeProvider, PowerAutomateNode } from './treeProvider';
-import { exportAndUnpack, packAndImport, initPacPath, createSolution, listEnvironments, listSolutions } from './pacCli';
+import { exportAndUnpack, packAndImport, initPacPath, createSolution, listEnvironments, listSolutions, listFlowRuns, PacFlowRun } from './pacCli';
+import { generateSolutionDocs } from './docGenerator';
 import { initLogger, info, error } from './log';
 import { openFlowVisualizer } from './flowVisualizer';
 import { LibraryProvider, LibraryNode } from './libraryProvider';
@@ -557,6 +558,132 @@ export async function activate(context: vscode.ExtensionContext) {
       );
     }),
 
+    // ── Generate Markdown documentation ─────────────────────────────────────
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.generateDocs', async () => {
+      if (!solutionsRoot) {
+        vscode.window.showWarningMessage('Open a workspace folder first.');
+        return;
+      }
+      if (!fs.existsSync(solutionsRoot)) {
+        vscode.window.showWarningMessage('No solutions folder found — export at least one solution first.');
+        return;
+      }
+      const docsPath = path.join(solutionsRoot, '..', 'FLOWS.md');
+      const content = generateSolutionDocs(solutionsRoot);
+      fs.writeFileSync(docsPath, content, 'utf8');
+      info(`Docs generated: ${docsPath}`);
+      const doc = await vscode.workspace.openTextDocument(docsPath);
+      await vscode.window.showTextDocument(doc);
+      vscode.window.showInformationMessage('✅ FLOWS.md generated in workspace root');
+    }),
+
+    // ── Search flows across solutions ────────────────────────────────────────
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.searchFlows', async () => {
+      if (!solutionsRoot) {
+        vscode.window.showWarningMessage('Open a workspace folder first.');
+        return;
+      }
+      if (!fs.existsSync(solutionsRoot)) {
+        vscode.window.showWarningMessage('No solutions folder found — export at least one solution first.');
+        return;
+      }
+
+      type FlowItem = vscode.QuickPickItem & { flowPath: string };
+      const items: FlowItem[] = [];
+
+      const solutionDirs = fs.readdirSync(solutionsRoot, { withFileTypes: true })
+        .filter(d => d.isDirectory()).map(d => d.name);
+
+      for (const sol of solutionDirs) {
+        const workflowsDir = path.join(solutionsRoot, sol, 'Workflows');
+        if (!fs.existsSync(workflowsDir)) { continue; }
+        for (const file of fs.readdirSync(workflowsDir).filter(f => f.endsWith('.json'))) {
+          try {
+            const flowPath = path.join(workflowsDir, file);
+            const raw = fs.readFileSync(flowPath, 'utf8');
+            const flow = JSON.parse(raw);
+            const def = flow.properties?.definition ?? flow.definition ?? flow;
+
+            const displayName = path.basename(file, '.json')
+              .replace(/-[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/i, '')
+              .replace(/-/g, ' ');
+
+            const triggerType: string = (Object.values(def.triggers ?? {})[0] as any)?.type ?? '';
+            const actionVals = Object.values(def.actions ?? {}) as any[];
+            const connectors: string[] = [...new Set(
+              actionVals.flatMap(a => {
+                const apiId: string | undefined = a.inputs?.host?.apiId;
+                return apiId ? [apiId.split('/').pop()!] : [];
+              })
+            )];
+
+            items.push({
+              label: `$(play-circle) ${displayName}`,
+              description: sol,
+              detail: [triggerType, ...connectors].filter(Boolean).join(' · '),
+              flowPath,
+            });
+          } catch { /* skip unparseable */ }
+        }
+      }
+
+      if (!items.length) {
+        vscode.window.showInformationMessage('No flow files found — export solutions first.');
+        return;
+      }
+
+      const picked = await vscode.window.showQuickPick(items, {
+        title: `Search Flows (${items.length} total)`,
+        placeHolder: 'Filter by flow name, solution, connector, or trigger type…',
+        matchOnDescription: true,
+        matchOnDetail: true,
+      });
+      if (picked) {
+        openFlowVisualizer(context, picked.flowPath);
+      }
+    }),
+
+    // ── Run history viewer ───────────────────────────────────────────────────
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.viewFlowRuns', async (node: PowerAutomateNode) => {
+      const { flowPath, envUrl, envId } = node.payload ?? {};
+      if (!flowPath) { return; }
+
+      const rawName = path.basename(flowPath, '.json');
+      const guidMatch = rawName.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+      if (!guidMatch) {
+        vscode.window.showErrorMessage('Could not extract flow GUID from filename.');
+        return;
+      }
+      const flowGuid = guidMatch[1];
+      const envTarget = envUrl || envId;
+      if (!envTarget) {
+        vscode.window.showWarningMessage('Environment not found — expand the environment in the tree first to load it.');
+        return;
+      }
+
+      const displayName = rawName.replace(/-[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/i, '').replace(/-/g, ' ');
+
+      const panel = vscode.window.createWebviewPanel(
+        'dxt-run-history',
+        `Runs: ${displayName}`,
+        vscode.ViewColumn.Beside,
+        { enableScripts: false }
+      );
+      panel.webview.html = buildRunHistoryHtml(displayName, 'loading');
+
+      try {
+        const runs = await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: `Loading run history for "${displayName}"…`, cancellable: false },
+          () => listFlowRuns(envTarget, flowGuid)
+        );
+        info(`Run history: ${runs.length} runs loaded for ${displayName}`);
+        panel.webview.html = buildRunHistoryHtml(displayName, runs);
+      } catch (e: any) {
+        error(`Run history: failed for ${displayName}`, e.message);
+        panel.webview.html = buildRunHistoryHtml(displayName, 'error', e.message);
+      }
+    }),
+
     vscode.commands.registerCommand('dxt-power-automate-toolkit.newSolution', async () => {
       if (!solutionsRoot) {
         vscode.window.showWarningMessage('Open a workspace folder before creating a solution.');
@@ -645,6 +772,96 @@ function findFlowFileByGuid(solutionsRoot: string, flowGuid: string): string | n
     }
   } catch { /* ignore */ }
   return null;
+}
+
+function buildRunHistoryHtml(flowName: string, runs: 'loading' | 'error' | PacFlowRun[], errorMsg?: string): string {
+  const STATUS_ICON: Record<string, string> = {
+    Succeeded: '✅', Failed: '❌', Running: '⏳', Cancelled: '⊘', TimedOut: '⏱',
+  };
+  const STATUS_COLOR: Record<string, string> = {
+    Succeeded: '#4EC94E', Failed: '#E07070', Running: '#0078D4', Cancelled: '#888', TimedOut: '#E0C04E',
+  };
+
+  function fmtDuration(ms: number): string {
+    if (ms < 1000) { return `${ms}ms`; }
+    if (ms < 60000) { return `${(ms / 1000).toFixed(1)}s`; }
+    const m = Math.floor(ms / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    return `${m}m ${s}s`;
+  }
+
+  function fmtTime(iso: string): string {
+    try { return new Date(iso).toLocaleString(); } catch { return iso; }
+  }
+
+  let bodyHtml: string;
+  if (runs === 'loading') {
+    bodyHtml = '<div class="empty">Loading run history…</div>';
+  } else if (runs === 'error') {
+    bodyHtml = `<div class="err">❌ Could not load run history: ${errorMsg ?? 'unknown error'}<br><small>Check that pac is authenticated and the flow exists in the cloud.</small></div>`;
+  } else if (!runs.length) {
+    bodyHtml = '<div class="empty">No runs found for this flow.</div>';
+  } else {
+    const passed = runs.filter(r => r.Status === 'Succeeded').length;
+    const failed = runs.filter(r => r.Status === 'Failed').length;
+    const rows = runs.map((r, i) => {
+      const icon = STATUS_ICON[r.Status] ?? '?';
+      const color = STATUS_COLOR[r.Status] ?? '#888';
+      let dur = '—';
+      if (r.Duration) {
+        dur = fmtDuration(r.Duration);
+      } else if (r.StartTime && r.EndTime) {
+        dur = fmtDuration(new Date(r.EndTime).getTime() - new Date(r.StartTime).getTime());
+      }
+      return `<tr class="${i % 2 === 0 ? '' : 'alt'}">
+        <td><span style="color:${color};font-weight:600">${icon} ${r.Status}</span></td>
+        <td>${fmtTime(r.StartTime)}</td>
+        <td>${dur}</td>
+        <td class="mono">${r.FlowRunId ? r.FlowRunId.slice(0, 8) + '…' : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    bodyHtml = `
+      <div class="summary">
+        <span>${runs.length} runs shown</span>
+        <span class="pass">✅ ${passed} succeeded</span>
+        <span class="fail">❌ ${failed} failed</span>
+      </div>
+      <table>
+        <thead><tr><th>Status</th><th>Start Time</th><th>Duration</th><th>Run ID</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--vscode-editor-background);color:var(--vscode-editor-foreground);font-family:var(--vscode-font-family,-apple-system,'Segoe UI',sans-serif);font-size:13px;padding:20px 24px}
+h1{font-size:16px;font-weight:700;margin-bottom:4px}
+.sub{font-size:11px;color:var(--vscode-descriptionForeground);margin-bottom:20px}
+.summary{display:flex;gap:16px;margin-bottom:14px;font-size:12px}
+.pass{color:#4EC94E}.fail{color:#E07070}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{text-align:left;padding:6px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--vscode-descriptionForeground);border-bottom:1px solid var(--vscode-editorWidget-border,#454545)}
+tbody td{padding:7px 12px;vertical-align:middle;border-bottom:1px solid var(--vscode-editorWidget-border,#33333355)}
+tr.alt td{background:rgba(255,255,255,.02)}
+tr:hover td{background:var(--vscode-list-hoverBackground,rgba(255,255,255,.04))}
+.mono{font-family:var(--vscode-editor-font-family,monospace);font-size:11px;color:var(--vscode-descriptionForeground)}
+.empty{padding:40px;text-align:center;color:var(--vscode-descriptionForeground);font-style:italic}
+.err{padding:14px;color:#E07070;background:rgba(224,112,112,.1);border-radius:4px;border:1px solid rgba(224,112,112,.3)}
+.err small{display:block;margin-top:6px;opacity:.7}
+</style>
+</head>
+<body>
+<h1>⚡ ${flowName}</h1>
+<div class="sub">Run history · last ${Array.isArray(runs) ? runs.length : '?'} runs</div>
+${bodyHtml}
+</body>
+</html>`;
 }
 
 function countdown(

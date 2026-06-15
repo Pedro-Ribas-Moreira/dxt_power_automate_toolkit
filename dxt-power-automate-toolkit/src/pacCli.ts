@@ -185,6 +185,21 @@ export async function packAndImport(envUrl: string, solutionName: string, soluti
   await runPacLong(['solution', 'import', '--environment', envUrl, '--path', zipPath]);
 }
 
+export interface PacFlowRun {
+  FlowRunId: string;
+  Status: string;        // Succeeded | Failed | Running | Cancelled | TimedOut
+  StartTime: string;     // ISO timestamp
+  EndTime?: string;
+  Duration?: number;     // milliseconds
+  TriggerType?: string;
+}
+
+export async function listFlowRuns(envTarget: string, flowId: string, maxRuns = 50): Promise<PacFlowRun[]> {
+  const raw = await runPac(['flow', 'run', 'list', '--environment', envTarget, '--flow-id', flowId, '--max-page-size', String(maxRuns), '--json']);
+  const data = extractJson<PacFlowRun[] | { value: PacFlowRun[] }>(raw);
+  return Array.isArray(data) ? data : (data as any).value ?? [];
+}
+
 export function listLocalFlows(solutionLocalDir: string): string[] {
   const workflowsDir = path.join(solutionLocalDir, 'Workflows');
   if (!fs.existsSync(workflowsDir)) { return []; }

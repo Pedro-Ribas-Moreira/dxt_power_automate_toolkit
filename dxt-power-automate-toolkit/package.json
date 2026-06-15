@@ -114,6 +114,24 @@
         "title": "Go to Flow or Solution from URL…",
         "icon": "$(search)",
         "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.generateDocs",
+        "title": "Generate Flow Documentation (FLOWS.md)",
+        "icon": "$(book)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.searchFlows",
+        "title": "Search Flows…",
+        "icon": "$(list-filter)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.viewFlowRuns",
+        "title": "View Run History",
+        "icon": "$(history)",
+        "category": "Power Automate"
       }
     ],
     "configuration": {
@@ -132,6 +150,16 @@
           "command": "dxt-power-automate-toolkit.navigateFromUrl",
           "when": "view == dxt-power-automate.treeView",
           "group": "navigation@1"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.searchFlows",
+          "when": "view == dxt-power-automate.treeView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.generateDocs",
+          "when": "view == dxt-power-automate.treeView",
+          "group": "navigation@3"
         },
         {
           "command": "dxt-power-automate-toolkit.filterLibrary",
@@ -184,6 +212,11 @@
           "command": "dxt-power-automate-toolkit.openInBrowser",
           "when": "view == dxt-power-automate.treeView && viewItem == flow",
           "group": "inline@4"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.viewFlowRuns",
+          "when": "view == dxt-power-automate.treeView && viewItem == flow",
+          "group": "inline@5"
         },
         {
           "command": "dxt-power-automate-toolkit.openInBrowser",
