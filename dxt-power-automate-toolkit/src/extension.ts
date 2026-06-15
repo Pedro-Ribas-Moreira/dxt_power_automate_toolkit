@@ -569,30 +569,61 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      // Try to get an LM model for AI summaries (requires GitHub Copilot or similar)
+      // ── LM model selection — provider-agnostic (Claude, Copilot, etc.) ──────
       let summarize: ((prompt: string) => Promise<string>) | undefined;
       let modelLabel = '';
+
+      const DOC_MODEL_KEY = 'docSummaryModelId';
+      let allModels: vscode.LanguageModelChat[] = [];
       try {
-        const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
-        if (models.length) {
-          const model = models[0];
-          modelLabel = model.name || model.id;
+        allModels = await vscode.lm.selectChatModels();
+      } catch { /* LM API not available */ }
+
+      if (allModels.length === 0) {
+        const choice = await vscode.window.showInformationMessage(
+          'No AI language model found. Install Claude or GitHub Copilot to enable plain-English summaries.',
+          'Generate without summaries', 'Cancel'
+        );
+        if (choice !== 'Generate without summaries') { return; }
+      } else {
+        // Build picker: last-used model floats to the top
+        const lastId = context.globalState.get<string>(DOC_MODEL_KEY);
+        type ModelItem = vscode.QuickPickItem & { modelId: string };
+        const modelItems: ModelItem[] = allModels.map(m => ({
+          label: `$(sparkle) ${m.name || m.id}`,
+          description: m.vendor,
+          detail: m.id === lastId ? '★ Last used' : undefined,
+          modelId: m.id,
+        }));
+        // Float last-used to top
+        const lastIdx = modelItems.findIndex(i => i.modelId === lastId);
+        if (lastIdx > 0) { modelItems.unshift(...modelItems.splice(lastIdx, 1)); }
+
+        const noAiItem: ModelItem = {
+          label: '$(circle-slash) No AI summaries',
+          description: 'Technical docs only, no plain-English descriptions',
+          modelId: '',
+        };
+
+        const pick = await vscode.window.showQuickPick([...modelItems, noAiItem], {
+          title: 'Generate Flow Documentation — AI model',
+          placeHolder: 'Choose which AI to use for plain-English summaries',
+        });
+        if (!pick) { return; } // user cancelled
+
+        if (pick.modelId) {
+          const chosen = allModels.find(m => m.id === pick.modelId)!;
+          modelLabel = chosen.name || chosen.id;
+          context.globalState.update(DOC_MODEL_KEY, chosen.id);
           summarize = async (prompt: string) => {
             const msgs = [vscode.LanguageModelChatMessage.User(prompt)];
-            const res = await model.sendRequest(msgs, {});
+            const res = await chosen.sendRequest(msgs, {});
             let text = '';
             for await (const chunk of res.text) { text += chunk; }
             return text.trim();
           };
-          info(`Doc generation: using LM "${modelLabel}" for AI summaries`);
-        } else {
-          vscode.window.showInformationMessage(
-            'No AI model available — generating docs without summaries. Install GitHub Copilot to add plain-English summaries.',
-            'Get Copilot'
-          ).then(c => { if (c === 'Get Copilot') { vscode.env.openExternal(vscode.Uri.parse('https://copilot.github.com')); } });
+          info(`Doc generation: using "${modelLabel}" for AI summaries`);
         }
-      } catch (e: any) {
-        info(`Doc generation: LM unavailable (${e.message}) — proceeding without AI summaries`);
       }
 
       const docsPath = path.join(solutionsRoot, '..', 'FLOWS.md');
@@ -639,7 +670,7 @@ export async function activate(context: vscode.ExtensionContext) {
       const doc = await vscode.workspace.openTextDocument(docsPath);
       await vscode.window.showTextDocument(doc);
       vscode.window.showInformationMessage(
-        summarize ? `✅ FLOWS.md updated with AI summaries` : `✅ FLOWS.md generated (no AI model — install Copilot to add summaries)`
+        summarize ? `✅ FLOWS.md generated with AI summaries (${modelLabel})` : `✅ FLOWS.md generated (no AI summaries)`
       );
     }),
 
