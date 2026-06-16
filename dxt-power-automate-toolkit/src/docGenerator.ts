@@ -18,6 +18,7 @@ interface ParsedFlow {
   actions: FlatAction[];
   connectors: string[];
   hasErr: boolean;
+  dataConnections: DataConnection[];
 }
 
 interface AiSummaries {
@@ -25,10 +26,138 @@ interface AiSummaries {
   flows: Record<string, string>;
 }
 
+export interface DataConnection {
+  connector: string;   // e.g. "sharepointonline"
+  resource: string;    // e.g. "Gas Self Renewal" (list/table/entity name)
+  direction: 'read' | 'write';
+  operationId: string;
+  flowNames: string[]; // which flows reference this connection
+}
+
 function getConnector(action: any): string | undefined {
   const apiId: string | undefined = action.inputs?.host?.apiId;
   if (!apiId) { return undefined; }
   return apiId.split('/').pop();
+}
+
+// ── Data lineage helpers ──────────────────────────────────────────────────────
+
+const READ_OPS = new Set([
+  'getitems','getitem','getitems_v2','getitem_v2','getfilecontent','getfiles',
+  'listrecords','getrecord','getrows','getrow','listrecords_v2',
+  'getdatasets','getreports','gettables','getdatasetmetadata',
+  'executepassthrough','executestoredprocedure',
+  'getemailtips','getcontact','getuser','getuserfromdirectory',
+]);
+
+const WRITE_OPS = new Set([
+  'createitem','updateitem','deleteitem','createitem_v2','updateitem_v2',
+  'createfile','updatefile','deletefile','copyfile','movefile',
+  'createrecord','updaterecord','deleterecord','upsertrecord',
+  'insertrow','updaterow','deleterow','insertrowv2','updaterowv2',
+  'addrowstodataset','refreshdataset','pushdatasetdata',
+  'sendmailv2','sendmail','replyto','forward','sendemail',
+  'postmessage','postadaptivecardtoconversation','sendnotification',
+  'createevent','updateevent','deleteevent',
+  'createtask','updatetask','deletetask',
+]);
+
+function classifyOperation(operationId: string, httpMethod?: string): 'read' | 'write' | null {
+  const op = operationId.toLowerCase().replace(/[^a-z]/g, '');
+  if (READ_OPS.has(op)) { return 'read'; }
+  if (WRITE_OPS.has(op)) { return 'write'; }
+  // HTTP method fallback
+  if (httpMethod) {
+    const m = httpMethod.toUpperCase();
+    if (m === 'GET') { return 'read'; }
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(m)) { return 'write'; }
+  }
+  // Heuristic prefix matching
+  const readPrefixes = ['get','list','read','fetch','query','search','find','retrieve','select'];
+  const writePrefixes = ['create','update','delete','insert','add','set','send','post','put','patch','remove','upsert','append','refresh','push'];
+  for (const p of readPrefixes) { if (op.startsWith(p)) { return 'read'; } }
+  for (const p of writePrefixes) { if (op.startsWith(p)) { return 'write'; } }
+  return null;
+}
+
+function extractResource(action: any): string {
+  const params = action.inputs?.parameters ?? {};
+  const isDynamic = (s: any) => typeof s !== 'string' || s.includes('@{');
+
+  // Most connectors use 'table' for the primary entity (SharePoint list, SQL table, etc.)
+  if (params.table && !isDynamic(params.table)) { return params.table; }
+  // Dataverse entity name
+  if (params.entityName && !isDynamic(params.entityName)) { return params.entityName; }
+  // SQL table
+  if (params.tableName && !isDynamic(params.tableName)) { return params.tableName; }
+  // SharePoint site from dataset URL
+  if (params.dataset && !isDynamic(params.dataset)) {
+    const site = (params.dataset as string).match(/\/sites\/([^/?]+)/);
+    if (site) { return site[1]; }
+  }
+  // Try to pull table out of the path string
+  const pathStr: string | undefined = action.inputs?.path;
+  if (pathStr && typeof pathStr === 'string') {
+    const tbl = pathStr.match(/\/tables\/([^/?@{]+)/);
+    if (tbl) { return decodeURIComponent(tbl[1]); }
+  }
+  return '';
+}
+
+function extractDataConnections(actions: Record<string, any>, flowName: string): DataConnection[] {
+  const map = new Map<string, DataConnection>();
+
+  function scan(acts: Record<string, any>) {
+    for (const [, action] of Object.entries(acts)) {
+      const apiId: string | undefined = action.inputs?.host?.apiId;
+      const operationId: string = action.inputs?.host?.operationId ?? '';
+      if (apiId && operationId) {
+        const connector = apiId.split('/').pop() ?? '';
+        const direction = classifyOperation(operationId, action.inputs?.method);
+        if (direction) {
+          const resource = extractResource(action);
+          const key = `${connector}|${resource}|${direction}`;
+          if (!map.has(key)) {
+            map.set(key, { connector, resource, direction, operationId, flowNames: [] });
+          }
+          const entry = map.get(key)!;
+          if (!entry.flowNames.includes(flowName)) { entry.flowNames.push(flowName); }
+        }
+      }
+      // HTTP action (not a connector)
+      if (action.type === 'Http' && action.inputs?.method) {
+        const direction = classifyOperation('http', action.inputs.method);
+        if (direction) {
+          const uri: string = action.inputs.uri ?? '';
+          const resource = uri.replace(/@\{[^}]+\}/g, '{…}').slice(0, 60);
+          const key = `http|${resource}|${direction}`;
+          if (!map.has(key)) {
+            map.set(key, { connector: 'HTTP', resource, direction, operationId: action.inputs.method, flowNames: [] });
+          }
+          map.get(key)!.flowNames.push(flowName);
+        }
+      }
+      if (action.actions) { scan(action.actions); }
+      if (action.else?.actions) { scan(action.else.actions); }
+    }
+  }
+
+  scan(actions);
+  return [...map.values()];
+}
+
+function renderDataMap(connections: DataConnection[]): string[] {
+  if (!connections.length) { return []; }
+  const reads  = connections.filter(c => c.direction === 'read');
+  const writes = connections.filter(c => c.direction === 'write');
+  const lines: string[] = [];
+
+  const fmt = (c: DataConnection) =>
+    `**${c.connector}**${c.resource ? ` → \`${c.resource}\`` : ''}`;
+
+  if (reads.length)  { lines.push(`📥 **Reads from:** ${reads.map(fmt).join(' · ')}`, ''); }
+  if (writes.length) { lines.push(`📤 **Writes to:** ${writes.map(fmt).join(' · ')}`, ''); }
+  return lines;
 }
 
 function topoSort(actions: Record<string, any>): string[] {
@@ -103,8 +232,9 @@ function parseFlowFile(flowFilePath: string): ParsedFlow | null {
     const actions = flattenActions(def.actions ?? {});
     const connectors = [...new Set(actions.map(a => a.connector).filter((c): c is string => !!c))];
     const hasErr = hasErrorHandling(def.actions ?? {});
+    const dataConnections = extractDataConnections(def.actions ?? {}, displayName);
 
-    return { displayName, triggerLabel, isHttpTrigger, actions, connectors, hasErr };
+    return { displayName, triggerLabel, isHttpTrigger, actions, connectors, hasErr, dataConnections };
   } catch {
     return null;
   }
@@ -195,6 +325,39 @@ export async function generateSolutionDocs(
 
     lines.push(`**${flowFiles.length} flow${flowFiles.length !== 1 ? 's' : ''}**`, ``);
 
+    // ── Solution-level data map ────────────────────────────────────────────────
+    const allConnections: DataConnection[] = [];
+    for (const p of parsed) {
+      if (!p) { continue; }
+      for (const c of p.dataConnections) {
+        const key = `${c.connector}|${c.resource}|${c.direction}`;
+        const existing = allConnections.find(x => `${x.connector}|${x.resource}|${x.direction}` === key);
+        if (existing) {
+          for (const fn of c.flowNames) {
+            if (!existing.flowNames.includes(fn)) { existing.flowNames.push(fn); }
+          }
+        } else {
+          allConnections.push({ ...c, flowNames: [...c.flowNames] });
+        }
+      }
+    }
+
+    if (allConnections.length) {
+      const reads  = allConnections.filter(c => c.direction === 'read');
+      const writes = allConnections.filter(c => c.direction === 'write');
+      lines.push(`### 🗄️ Data Connections`, ``);
+      lines.push(`| Direction | Connector | Resource | Used in |`);
+      lines.push(`|-----------|-----------|----------|---------|`);
+      for (const c of reads) {
+        lines.push(`| 📥 Read | \`${c.connector}\` | ${c.resource || '—'} | ${c.flowNames.join(', ')} |`);
+      }
+      for (const c of writes) {
+        lines.push(`| 📤 Write | \`${c.connector}\` | ${c.resource || '—'} | ${c.flowNames.join(', ')} |`);
+      }
+      lines.push(``);
+    }
+
+    // ── Per-flow sections ──────────────────────────────────────────────────────
     for (let i = 0; i < flowFiles.length; i++) {
       const p = parsed[i];
       if (!p) {
@@ -202,7 +365,7 @@ export async function generateSolutionDocs(
         continue;
       }
 
-      const { displayName, triggerLabel, isHttpTrigger, actions, connectors, hasErr } = p;
+      const { displayName, triggerLabel, isHttpTrigger, actions, connectors, hasErr, dataConnections } = p;
       const badges: string[] = [];
       if (hasErr) { badges.push('✅ Error handling'); } else { badges.push('⚠️ No error handling'); }
       if (isHttpTrigger) { badges.push('⚠️ Register in APIM'); }
@@ -218,6 +381,9 @@ export async function generateSolutionDocs(
       if (flowSummary) {
         lines.push(`> ${flowSummary}`, ``);
       }
+
+      // Per-flow data map
+      lines.push(...renderDataMap(dataConnections));
 
       if (badges.length) { lines.push(badges.join('&ensp;·&ensp;'), ``); }
       lines.push(`**Trigger:** \`${triggerLabel}\``, ``);
