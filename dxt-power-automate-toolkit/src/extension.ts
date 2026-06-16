@@ -905,7 +905,14 @@ function buildRunHistoryHtml(flowName: string, runs: 'loading' | 'error' | PacFl
   if (runs === 'loading') {
     bodyHtml = '<div class="empty">Loading run history…</div>';
   } else if (runs === 'error') {
-    bodyHtml = `<div class="err">❌ Could not load run history: ${errorMsg ?? 'unknown error'}<br><small>Check that pac is authenticated and the flow exists in the cloud.</small></div>`;
+    const isVersionError = errorMsg?.includes('pac flow commands require a newer version');
+    const errLines = (errorMsg ?? 'unknown error').replace(/\n/g, '<br>');
+    bodyHtml = isVersionError
+      ? `<div class="err">
+          <strong>⬆️ PAC CLI update required</strong><br><br>
+          ${errLines}
+         </div>`
+      : `<div class="err">❌ Could not load run history: ${errLines}<br><small>Check that pac is authenticated and the flow exists in the cloud.</small></div>`;
   } else if (!runs.length) {
     bodyHtml = '<div class="empty">No runs found for this flow.</div>';
   } else {
