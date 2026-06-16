@@ -785,7 +785,9 @@ export async function activate(context: vscode.ExtensionContext) {
             try {
               return await listFlowRuns(envUrl ?? envId!, flowGuid);
             } catch (e: any) {
-              if (e.message?.includes('pac flow commands require') || e.message?.includes('Parse failed on: flow')) {
+              if (e.message?.includes('pac flow commands require') ||
+                  e.message?.toLowerCase().includes('not a valid command') ||
+                  /parse failed on:\s+flow/i.test(e.message ?? '')) {
                 info('pac flow not available, using Power Automate REST API fallback');
                 return await listFlowRunsViaRestApi(envUrl!, envId, flowGuid);
               }

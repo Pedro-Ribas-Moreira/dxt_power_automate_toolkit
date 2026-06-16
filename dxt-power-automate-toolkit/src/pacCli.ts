@@ -201,7 +201,7 @@ export async function listFlowRuns(envTarget: string, flowId: string, maxRuns = 
   } catch (e: any) {
     const msg: string = e.message ?? '';
     // PAC CLI versions that predate the `pac flow` subcommand produce this error
-    if (msg.includes('not a valid command') || msg.toLowerCase().includes('parse failed on: flow')) {
+    if (msg.toLowerCase().includes('not a valid command') || /parse failed on:\s+flow/i.test(msg)) {
       throw new Error(
         'pac flow commands require a newer version of PAC CLI.\n' +
         'Run one of these to update:\n' +
