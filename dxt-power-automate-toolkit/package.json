@@ -126,12 +126,6 @@
         "title": "Search Flows…",
         "icon": "$(list-filter)",
         "category": "Power Automate"
-      },
-      {
-        "command": "dxt-power-automate-toolkit.viewFlowRuns",
-        "title": "View Run History",
-        "icon": "$(history)",
-        "category": "Power Automate"
       }
     ],
     "configuration": {
@@ -212,11 +206,6 @@
           "command": "dxt-power-automate-toolkit.openInBrowser",
           "when": "view == dxt-power-automate.treeView && viewItem == flow",
           "group": "inline@4"
-        },
-        {
-          "command": "dxt-power-automate-toolkit.viewFlowRuns",
-          "when": "view == dxt-power-automate.treeView && viewItem == flow",
-          "group": "inline@5"
         },
         {
           "command": "dxt-power-automate-toolkit.openInBrowser",

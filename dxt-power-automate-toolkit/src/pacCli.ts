@@ -185,36 +185,6 @@ export async function packAndImport(envUrl: string, solutionName: string, soluti
   await runPacLong(['solution', 'import', '--environment', envUrl, '--path', zipPath]);
 }
 
-export interface PacFlowRun {
-  FlowRunId: string;
-  Status: string;        // Succeeded | Failed | Running | Cancelled | TimedOut
-  StartTime: string;     // ISO timestamp
-  EndTime?: string;
-  Duration?: number;     // milliseconds
-  TriggerType?: string;
-}
-
-export async function listFlowRuns(envTarget: string, flowId: string, maxRuns = 50): Promise<PacFlowRun[]> {
-  let raw: string;
-  try {
-    raw = await runPac(['flow', 'run', 'list', '--environment', envTarget, '--flow-id', flowId, '--top', String(maxRuns), '--json']);
-  } catch (e: any) {
-    const msg: string = e.message ?? '';
-    // PAC CLI versions that predate the `pac flow` subcommand produce this error
-    if (msg.toLowerCase().includes('not a valid command') || /parse failed on:\s+flow/i.test(msg)) {
-      throw new Error(
-        'pac flow commands require a newer version of PAC CLI.\n' +
-        'Run one of these to update:\n' +
-        '  • dotnet tool update -g Microsoft.PowerApps.CLI.Tool\n' +
-        '  • Update the "Microsoft Power Platform Tools" VS Code extension\n\n' +
-        `Current error: ${msg}`
-      );
-    }
-    throw e;
-  }
-  const data = extractJson<PacFlowRun[] | { value: PacFlowRun[] }>(raw);
-  return Array.isArray(data) ? data : (data as any).value ?? [];
-}
 
 export function listLocalFlows(solutionLocalDir: string): string[] {
   const workflowsDir = path.join(solutionLocalDir, 'Workflows');

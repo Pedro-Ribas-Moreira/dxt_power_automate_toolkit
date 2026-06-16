@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { PowerAutomateTreeProvider, PowerAutomateNode } from './treeProvider';
-import { exportAndUnpack, packAndImport, initPacPath, createSolution, listEnvironments, listSolutions, listFlowRuns, PacFlowRun } from './pacCli';
+import { exportAndUnpack, packAndImport, initPacPath, createSolution, listEnvironments, listSolutions } from './pacCli';
 import { generateSolutionDocs } from './docGenerator';
 import { initLogger, info, error } from './log';
 import { openFlowVisualizer } from './flowVisualizer';
@@ -750,59 +750,6 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }),
 
-    // ── Run history viewer ───────────────────────────────────────────────────
-    vscode.commands.registerCommand('dxt-power-automate-toolkit.viewFlowRuns', async (node: PowerAutomateNode) => {
-      const { flowPath, envUrl, envId } = node.payload ?? {};
-      if (!flowPath) { return; }
-
-      const rawName = path.basename(flowPath, '.json');
-      const guidMatch = rawName.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
-      if (!guidMatch) {
-        vscode.window.showErrorMessage('Could not extract flow GUID from filename.');
-        return;
-      }
-      const flowGuid = guidMatch[1];
-      if (!envUrl && !envId) {
-        vscode.window.showWarningMessage('Environment not found — expand the environment in the tree first to load it.');
-        return;
-      }
-
-      const displayName = rawName.replace(/-[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/i, '').replace(/-/g, ' ');
-
-      const panel = vscode.window.createWebviewPanel(
-        'dxt-run-history',
-        `Runs: ${displayName}`,
-        vscode.ViewColumn.Beside,
-        { enableScripts: false }
-      );
-      panel.webview.html = buildRunHistoryHtml(displayName, 'loading');
-
-      try {
-        const runs = await vscode.window.withProgress(
-          { location: vscode.ProgressLocation.Notification, title: `Loading run history for "${displayName}"…`, cancellable: false },
-          async () => {
-            // Try pac flow run list first; fall back to Power Automate REST API
-            try {
-              return await listFlowRuns(envUrl ?? envId!, flowGuid);
-            } catch (e: any) {
-              if (e.message?.includes('pac flow commands require') ||
-                  e.message?.toLowerCase().includes('not a valid command') ||
-                  /parse failed on:\s+flow/i.test(e.message ?? '')) {
-                info('pac flow not available, using Power Automate REST API fallback');
-                return await listFlowRunsViaRestApi(envUrl!, envId, flowGuid);
-              }
-              throw e;
-            }
-          }
-        );
-        info(`Run history: ${runs.length} runs loaded for ${displayName}`);
-        panel.webview.html = buildRunHistoryHtml(displayName, runs);
-      } catch (e: any) {
-        error(`Run history: failed for ${displayName}`, e.message);
-        panel.webview.html = buildRunHistoryHtml(displayName, 'error', e.message);
-      }
-    }),
-
     vscode.commands.registerCommand('dxt-power-automate-toolkit.newSolution', async () => {
       if (!solutionsRoot) {
         vscode.window.showWarningMessage('Open a workspace folder before creating a solution.');
@@ -891,140 +838,6 @@ function findFlowFileByGuid(solutionsRoot: string, flowGuid: string): string | n
     }
   } catch { /* ignore */ }
   return null;
-}
-
-async function listFlowRunsViaRestApi(envUrl: string, envId: string | undefined, flowId: string, maxRuns = 50): Promise<PacFlowRun[]> {
-  // Get a token for the Power Automate service via VS Code's built-in Microsoft auth
-  const session = await vscode.authentication.getSession(
-    'microsoft',
-    ['https://service.flow.microsoft.com/.default'],
-    { createIfNone: true }
-  );
-
-  // The Power Automate API needs the environment ID (GUID), not the Dataverse URL.
-  // Try envId first; fall back to extracting the org ID from the URL hostname.
-  const environmentName = envId
-    ?? envUrl.replace(/^https?:\/\//, '').replace(/\..+$/, ''); // e.g. org12345 from org12345.crm.dynamics.com
-
-  const apiUrl = `https://api.flow.microsoft.com/providers/Microsoft.ProcessSimple/environments/${environmentName}/flows/${flowId}/runs?api-version=2016-11-01&$top=${maxRuns}`;
-
-  const resp = await fetch(apiUrl, {
-    headers: { 'Authorization': `Bearer ${session.accessToken}` }
-  });
-
-  if (!resp.ok) {
-    const body = await resp.text();
-    throw new Error(`Power Automate API ${resp.status}: ${body}`);
-  }
-
-  const data = await resp.json() as { value?: any[] };
-  return (data.value ?? []).map((run: any): PacFlowRun => ({
-    FlowRunId: run.name ?? '',
-    Status: run.properties?.status ?? 'Unknown',
-    StartTime: run.properties?.startTime ?? '',
-    EndTime: run.properties?.endTime,
-    Duration: run.properties?.endTime && run.properties?.startTime
-      ? new Date(run.properties.endTime).getTime() - new Date(run.properties.startTime).getTime()
-      : undefined,
-    TriggerType: run.properties?.trigger?.name,
-  }));
-}
-
-function buildRunHistoryHtml(flowName: string, runs: 'loading' | 'error' | PacFlowRun[], errorMsg?: string): string {
-  const STATUS_ICON: Record<string, string> = {
-    Succeeded: '✅', Failed: '❌', Running: '⏳', Cancelled: '⊘', TimedOut: '⏱',
-  };
-  const STATUS_COLOR: Record<string, string> = {
-    Succeeded: '#4EC94E', Failed: '#E07070', Running: '#0078D4', Cancelled: '#888', TimedOut: '#E0C04E',
-  };
-
-  function fmtDuration(ms: number): string {
-    if (ms < 1000) { return `${ms}ms`; }
-    if (ms < 60000) { return `${(ms / 1000).toFixed(1)}s`; }
-    const m = Math.floor(ms / 60000);
-    const s = Math.floor((ms % 60000) / 1000);
-    return `${m}m ${s}s`;
-  }
-
-  function fmtTime(iso: string): string {
-    try { return new Date(iso).toLocaleString(); } catch { return iso; }
-  }
-
-  let bodyHtml: string;
-  if (runs === 'loading') {
-    bodyHtml = '<div class="empty">Loading run history…</div>';
-  } else if (runs === 'error') {
-    const isVersionError = errorMsg?.includes('pac flow commands require a newer version');
-    const errLines = (errorMsg ?? 'unknown error').replace(/\n/g, '<br>');
-    bodyHtml = isVersionError
-      ? `<div class="err">
-          <strong>⬆️ PAC CLI update required</strong><br><br>
-          ${errLines}
-         </div>`
-      : `<div class="err">❌ Could not load run history: ${errLines}<br><small>Check that pac is authenticated and the flow exists in the cloud.</small></div>`;
-  } else if (!runs.length) {
-    bodyHtml = '<div class="empty">No runs found for this flow.</div>';
-  } else {
-    const passed = runs.filter(r => r.Status === 'Succeeded').length;
-    const failed = runs.filter(r => r.Status === 'Failed').length;
-    const rows = runs.map((r, i) => {
-      const icon = STATUS_ICON[r.Status] ?? '?';
-      const color = STATUS_COLOR[r.Status] ?? '#888';
-      let dur = '—';
-      if (r.Duration) {
-        dur = fmtDuration(r.Duration);
-      } else if (r.StartTime && r.EndTime) {
-        dur = fmtDuration(new Date(r.EndTime).getTime() - new Date(r.StartTime).getTime());
-      }
-      return `<tr class="${i % 2 === 0 ? '' : 'alt'}">
-        <td><span style="color:${color};font-weight:600">${icon} ${r.Status}</span></td>
-        <td>${fmtTime(r.StartTime)}</td>
-        <td>${dur}</td>
-        <td class="mono">${r.FlowRunId ? r.FlowRunId.slice(0, 8) + '…' : '—'}</td>
-      </tr>`;
-    }).join('');
-
-    bodyHtml = `
-      <div class="summary">
-        <span>${runs.length} runs shown</span>
-        <span class="pass">✅ ${passed} succeeded</span>
-        <span class="fail">❌ ${failed} failed</span>
-      </div>
-      <table>
-        <thead><tr><th>Status</th><th>Start Time</th><th>Duration</th><th>Run ID</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
-  }
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--vscode-editor-background);color:var(--vscode-editor-foreground);font-family:var(--vscode-font-family,-apple-system,'Segoe UI',sans-serif);font-size:13px;padding:20px 24px}
-h1{font-size:16px;font-weight:700;margin-bottom:4px}
-.sub{font-size:11px;color:var(--vscode-descriptionForeground);margin-bottom:20px}
-.summary{display:flex;gap:16px;margin-bottom:14px;font-size:12px}
-.pass{color:#4EC94E}.fail{color:#E07070}
-table{width:100%;border-collapse:collapse;font-size:12px}
-thead th{text-align:left;padding:6px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--vscode-descriptionForeground);border-bottom:1px solid var(--vscode-editorWidget-border,#454545)}
-tbody td{padding:7px 12px;vertical-align:middle;border-bottom:1px solid var(--vscode-editorWidget-border,#33333355)}
-tr.alt td{background:rgba(255,255,255,.02)}
-tr:hover td{background:var(--vscode-list-hoverBackground,rgba(255,255,255,.04))}
-.mono{font-family:var(--vscode-editor-font-family,monospace);font-size:11px;color:var(--vscode-descriptionForeground)}
-.empty{padding:40px;text-align:center;color:var(--vscode-descriptionForeground);font-style:italic}
-.err{padding:14px;color:#E07070;background:rgba(224,112,112,.1);border-radius:4px;border:1px solid rgba(224,112,112,.3)}
-.err small{display:block;margin-top:6px;opacity:.7}
-</style>
-</head>
-<body>
-<h1>⚡ ${flowName}</h1>
-<div class="sub">Run history · last ${Array.isArray(runs) ? runs.length : '?'} runs</div>
-${bodyHtml}
-</body>
-</html>`;
 }
 
 function countdown(
