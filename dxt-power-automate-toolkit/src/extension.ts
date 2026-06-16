@@ -626,11 +626,10 @@ export async function activate(context: vscode.ExtensionContext) {
         }
       }
 
-      const docsPath = path.join(solutionsRoot, '..', 'FLOWS.md');
       const MARKER_START = '<!-- PA-DOCS:START -->';
       const MARKER_END = '<!-- PA-DOCS:END -->';
 
-      let generated = '';
+      let solutionDocs: import('./docGenerator').SolutionDoc[] = [];
       await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
@@ -640,37 +639,45 @@ export async function activate(context: vscode.ExtensionContext) {
           cancellable: false,
         },
         async (progress) => {
-          generated = await generateSolutionDocs(solutionsRoot!, summarize, (msg) => {
+          solutionDocs = await generateSolutionDocs(solutionsRoot!, summarize, (msg) => {
             progress.report({ message: msg });
           });
         }
       );
 
-      // Wrap generated content in markers so manual notes below are preserved on re-run
-      const block = `${MARKER_START}\n${generated}\n${MARKER_END}`;
-      let finalContent: string;
-
-      if (fs.existsSync(docsPath)) {
-        const existing = fs.readFileSync(docsPath, 'utf8');
-        const s = existing.indexOf(MARKER_START);
-        const e = existing.indexOf(MARKER_END);
-        if (s !== -1 && e !== -1 && e > s) {
-          // Replace between markers, keep everything else (manual notes, custom sections)
-          finalContent = existing.slice(0, s) + block + existing.slice(e + MARKER_END.length);
-        } else {
-          // First run on an existing file — prepend generated block, keep old content as notes
-          finalContent = block + '\n\n---\n\n## My Notes\n\n> ✏️ Write your custom notes here — they will be preserved on every re-generation.\n\n' + existing;
-        }
-      } else {
-        finalContent = block + '\n\n---\n\n## My Notes\n\n> ✏️ Write your custom notes here — they will be preserved on every re-generation.\n';
+      if (!solutionDocs.length) {
+        vscode.window.showWarningMessage('No solutions with flows found — export at least one solution first.');
+        return;
       }
 
-      fs.writeFileSync(docsPath, finalContent, 'utf8');
-      info(`Docs written: ${docsPath}`);
-      const doc = await vscode.workspace.openTextDocument(docsPath);
+      // Write one FLOWS.md per solution, inside its folder
+      let firstPath = '';
+      for (const sol of solutionDocs) {
+        const block = `${MARKER_START}\n${sol.content}\n${MARKER_END}`;
+        let finalContent: string;
+
+        if (fs.existsSync(sol.outPath)) {
+          const existing = fs.readFileSync(sol.outPath, 'utf8');
+          const s = existing.indexOf(MARKER_START);
+          const e = existing.indexOf(MARKER_END);
+          if (s !== -1 && e !== -1 && e > s) {
+            finalContent = existing.slice(0, s) + block + existing.slice(e + MARKER_END.length);
+          } else {
+            finalContent = block + '\n\n---\n\n## My Notes\n\n> ✏️ Write your custom notes here — they will be preserved on every re-generation.\n\n' + existing;
+          }
+        } else {
+          finalContent = block + '\n\n---\n\n## My Notes\n\n> ✏️ Write your custom notes here — they will be preserved on every re-generation.\n';
+        }
+
+        fs.writeFileSync(sol.outPath, finalContent, 'utf8');
+        info(`Docs written: ${sol.outPath}`);
+        if (!firstPath) { firstPath = sol.outPath; }
+      }
+
+      const doc = await vscode.workspace.openTextDocument(firstPath);
       await vscode.window.showTextDocument(doc);
       vscode.window.showInformationMessage(
-        summarize ? `✅ FLOWS.md generated with AI summaries (${modelLabel})` : `✅ FLOWS.md generated (no AI summaries)`
+        `✅ FLOWS.md generated for ${solutionDocs.length} solution${solutionDocs.length !== 1 ? 's' : ''}${summarize ? ` with AI summaries (${modelLabel})` : ''}`
       );
     }),
 
