@@ -762,8 +762,7 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
       const flowGuid = guidMatch[1];
-      const envTarget = envUrl || envId;
-      if (!envTarget) {
+      if (!envUrl && !envId) {
         vscode.window.showWarningMessage('Environment not found — expand the environment in the tree first to load it.');
         return;
       }
@@ -781,7 +780,18 @@ export async function activate(context: vscode.ExtensionContext) {
       try {
         const runs = await vscode.window.withProgress(
           { location: vscode.ProgressLocation.Notification, title: `Loading run history for "${displayName}"…`, cancellable: false },
-          () => listFlowRuns(envTarget, flowGuid)
+          async () => {
+            // Try pac flow run list first; fall back to Power Automate REST API
+            try {
+              return await listFlowRuns(envUrl ?? envId!, flowGuid);
+            } catch (e: any) {
+              if (e.message?.includes('pac flow commands require') || e.message?.includes('Parse failed on: flow')) {
+                info('pac flow not available, using Power Automate REST API fallback');
+                return await listFlowRunsViaRestApi(envUrl!, envId, flowGuid);
+              }
+              throw e;
+            }
+          }
         );
         info(`Run history: ${runs.length} runs loaded for ${displayName}`);
         panel.webview.html = buildRunHistoryHtml(displayName, runs);
@@ -879,6 +889,43 @@ function findFlowFileByGuid(solutionsRoot: string, flowGuid: string): string | n
     }
   } catch { /* ignore */ }
   return null;
+}
+
+async function listFlowRunsViaRestApi(envUrl: string, envId: string | undefined, flowId: string, maxRuns = 50): Promise<PacFlowRun[]> {
+  // Get a token for the Power Automate service via VS Code's built-in Microsoft auth
+  const session = await vscode.authentication.getSession(
+    'microsoft',
+    ['https://service.flow.microsoft.com/.default'],
+    { createIfNone: true }
+  );
+
+  // The Power Automate API needs the environment ID (GUID), not the Dataverse URL.
+  // Try envId first; fall back to extracting the org ID from the URL hostname.
+  const environmentName = envId
+    ?? envUrl.replace(/^https?:\/\//, '').replace(/\..+$/, ''); // e.g. org12345 from org12345.crm.dynamics.com
+
+  const apiUrl = `https://api.flow.microsoft.com/providers/Microsoft.ProcessSimple/environments/${environmentName}/flows/${flowId}/runs?api-version=2016-11-01&$top=${maxRuns}`;
+
+  const resp = await fetch(apiUrl, {
+    headers: { 'Authorization': `Bearer ${session.accessToken}` }
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Power Automate API ${resp.status}: ${body}`);
+  }
+
+  const data = await resp.json() as { value?: any[] };
+  return (data.value ?? []).map((run: any): PacFlowRun => ({
+    FlowRunId: run.name ?? '',
+    Status: run.properties?.status ?? 'Unknown',
+    StartTime: run.properties?.startTime ?? '',
+    EndTime: run.properties?.endTime,
+    Duration: run.properties?.endTime && run.properties?.startTime
+      ? new Date(run.properties.endTime).getTime() - new Date(run.properties.startTime).getTime()
+      : undefined,
+    TriggerType: run.properties?.trigger?.name,
+  }));
 }
 
 function buildRunHistoryHtml(flowName: string, runs: 'loading' | 'error' | PacFlowRun[], errorMsg?: string): string {
