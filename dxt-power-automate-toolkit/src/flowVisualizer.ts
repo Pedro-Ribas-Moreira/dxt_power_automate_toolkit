@@ -331,9 +331,42 @@ body {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  max-width: 520px;
+  max-width: 540px;
   margin: 0 auto;
+  transform-origin: top center;
+  will-change: transform;
+  padding-bottom: 80px;
 }
+
+/* ── Zoom viewport ── */
+#flow-vp {
+  overflow: hidden;
+  width: 100%;
+  min-height: 300px;
+  position: relative;
+  cursor: default;
+}
+
+/* ── Zoom controls ── */
+.zoom-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+  justify-content: flex-end;
+}
+.zoom-btn {
+  width: 26px; height: 26px;
+  border: 1px solid var(--vscode-editorWidget-border, #454545);
+  background: var(--vscode-editorWidget-background);
+  color: var(--vscode-editor-foreground);
+  border-radius: 4px; cursor: pointer;
+  font-size: 15px; line-height: 1;
+  display: flex; align-items: center; justify-content: center; padding: 0;
+}
+.zoom-btn:hover { background: var(--vscode-button-background, #0e639c); color: var(--vscode-button-foreground, #fff); }
+.zoom-reset { font-size: 11px; width: auto; padding: 0 8px; letter-spacing: .3px; }
+.zoom-pct { font-size: 11px; color: var(--vscode-descriptionForeground); min-width: 38px; text-align: center; }
 
 /* ── Connector arrow + insert point ── */
 .insert-row {
@@ -345,20 +378,37 @@ body {
 }
 .arrow {
   width: 2px;
-  height: 14px;
-  background: var(--vscode-editorWidget-border, #454545);
+  height: 20px;
+  background: var(--vscode-editorWidget-border, #555);
   position: relative;
   flex-shrink: 0;
 }
 .arrow.arrow-bottom::after {
   content: '';
   position: absolute;
-  bottom: -5px;
+  bottom: -6px;
   left: 50%;
   transform: translateX(-50%);
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 6px solid var(--vscode-editorWidget-border, #454545);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid var(--vscode-editorWidget-border, #555);
+}
+
+/* ── Connector badge ── */
+.conn-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid;
+  margin-left: 6px;
+  white-space: nowrap;
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 .insert-btn {
   width: 20px;
@@ -974,6 +1024,68 @@ function typeInfo(t) {
   return m[t] || { icon:'⚙️', cls:'t-other', label: t };
 }
 
+// ── Connector colour map ──────────────────────────────────────────────────────
+var CONN_COLORS = {
+  sharepointonline:         '#0078D4',
+  sharepointfilesfolder:    '#0078D4',
+  office365:                '#D83B01',
+  office365users:           '#D83B01',
+  office365groups:          '#D83B01',
+  microsoftteams:           '#6264A7',
+  teams:                    '#6264A7',
+  commondataservice:        '#00B7C3',
+  commondataserviceforapps: '#00B7C3',
+  dynamicscrmonline:        '#00B7C3',
+  dataverse:                '#00B7C3',
+  azureblob:                '#0089D6',
+  azurequeues:              '#0089D6',
+  excelonlinebusiness:      '#217346',
+  microsoftforms:           '#77BC62',
+  approvals:                '#FFB900',
+  sendgrid:                 '#009DDC',
+  twilio:                   '#F22F46',
+  sql:                      '#CC2221',
+  onedriveforbusiness:      '#0078D4',
+  planner:                  '#31752F',
+  keyvault:                 '#ECD53F',
+  flowpush:                 '#742774',
+};
+var TYPE_COLORS = {
+  Request:    '#742774',
+  Recurrence: '#742774',
+  Response:   '#107C10',
+  Http:       '#085B99',
+  Terminate:  '#C0392B',
+  ParseJson:  '#00BCD4',
+  Compose:    '#E06C00',
+  InitializeVariable: '#9B4F96',
+  SetVariable:        '#9B4F96',
+  IncrementVariable:  '#9B4F96',
+  AppendToStringVariable: '#9B4F96',
+  Foreach:    '#00A4EF',
+  If:         '#0078D4',
+  Scope:      '#7B5EA7',
+  Delay:      '#888',
+};
+
+function getConnectorColor(action) {
+  if (!action) { return '#888'; }
+  var apiId = action.inputs && action.inputs.host && action.inputs.host.apiId;
+  if (apiId) {
+    var key = apiId.split('/').pop().toLowerCase().replace(/[^a-z0-9]/g,'');
+    return CONN_COLORS[key] || '#5B9BD5';
+  }
+  return TYPE_COLORS[action.type] || '#888';
+}
+
+function getConnectorName(action) {
+  if (!action) { return ''; }
+  var apiId = action.inputs && action.inputs.host && action.inputs.host.apiId;
+  if (!apiId) { return ''; }
+  var parts = apiId.split('/');
+  return parts[parts.length - 1];
+}
+
 function detail(action) {
   var type = action.type, inputs = action.inputs, fe = action.foreach;
   if (type === 'Compose' && inputs !== undefined) {
@@ -1545,17 +1657,21 @@ function doSaveAction(name) {
 
 // ── Card / loop / condition renderers ─────────────────────────────────────────
 function card(name, action) {
-  var info = typeInfo(action.type);
-  var s = sid(name);
-  var editable = isEditableType(action.type);
-  var safeName = escJs(name);
-  var bodyHtml = buildStaticInputs(action);
+  var info      = typeInfo(action.type);
+  var s         = sid(name);
+  var editable  = isEditableType(action.type);
+  var safeName  = escJs(name);
+  var bodyHtml  = buildStaticInputs(action);
+  var color     = getConnectorColor(action);
+  var connName  = getConnectorName(action);
 
   return '<div class="card" data-action="'+escHtml(name)+'">'
-    + '<div class="card-head ' + info.cls + '" onclick="toggleCard(\\\''+s+'\\\')">'
+    + '<div class="card-head ' + info.cls + '" onclick="toggleCard(\\\''+s+'\\\')" style="border-left:3px solid '+color+'">'
     + '<span class="card-icon">'+info.icon+'</span>'
     + '<span class="card-name">'+fmt(name)+'</span>'
-    + '<span class="card-type">'+info.label+'</span>'
+    + (connName
+        ? '<span class="conn-badge" style="background:'+color+'20;color:'+color+';border-color:'+color+'55">'+connName+'</span>'
+        : '<span class="card-type">'+info.label+'</span>')
     + (bodyHtml ? '<span class="card-chevron" id="chev_'+s+'">›</span>' : '')
     + (editable ? '<button class="edit-btn" onclick="openEdit(\\\''+safeName+'\\\',event)" title="Edit">✏</button>' : '')
     + '<button class="delete-btn" onclick="requestDelete(\\\''+safeName+'\\\',event)" title="Delete action">🗑</button>'
@@ -1746,14 +1862,54 @@ function render(data) {
     + '<button class="run-btn" id="runBtn" onclick="runInVisualizer()">▶ Run</button>'
     + '</div>'
     + healthHtml
+    + '<div class="zoom-bar">'
+    + '<button class="zoom-btn" onclick="zoomOut()" title="Zoom out (scroll wheel also works)">−</button>'
+    + '<span id="zoomPct" class="zoom-pct">100%</span>'
+    + '<button class="zoom-btn" onclick="zoomIn()" title="Zoom in">+</button>'
+    + '<button class="zoom-btn zoom-reset" onclick="zoomReset()" title="Reset zoom &amp; pan">⊙ Reset</button>'
+    + '</div>'
+    + '<div id="flow-vp">'
     + '<div class="canvas">'
     + triggerCard
     + actionsHtml
-    + '</div>';
+    + '</div></div>';
 }
 
-// ── Run in visualizer ─────────────────────────────────────────────────────────
+// ── Zoom / Pan ────────────────────────────────────────────────────────────────
 var vscode = acquireVsCodeApi();
+var _zScale = 1, _zPanX = 0, _zPanY = 0, _zDrag = false, _zSx = 0, _zSy = 0;
+
+function _applyZoom() {
+  var c = document.querySelector('.canvas');
+  if (c) { c.style.transform = 'translate('+_zPanX+'px,'+_zPanY+'px) scale('+_zScale+')'; }
+  var lbl = document.getElementById('zoomPct');
+  if (lbl) { lbl.textContent = Math.round(_zScale * 100) + '%'; }
+}
+function zoomIn()   { _zScale = Math.min(_zScale * 1.15, 3);    _applyZoom(); }
+function zoomOut()  { _zScale = Math.max(_zScale * 0.87, 0.25); _applyZoom(); }
+function zoomReset(){ _zScale = 1; _zPanX = 0; _zPanY = 0; _applyZoom(); }
+
+window.addEventListener('wheel', function(e) {
+  if (!document.getElementById('flow-vp')) { return; }
+  e.preventDefault();
+  _zScale = Math.min(Math.max(_zScale * (e.deltaY > 0 ? 0.91 : 1.1), 0.25), 3);
+  _applyZoom();
+}, { passive: false });
+
+window.addEventListener('mousedown', function(e) {
+  if (e.button !== 0) { return; }
+  if (e.target.closest('.card,.scope-box,.loop-box,.condition-wrap,.insert-row,button,input,select,textarea')) { return; }
+  _zDrag = true; _zSx = e.clientX - _zPanX; _zSy = e.clientY - _zPanY;
+  document.body.style.cursor = 'grabbing';
+});
+window.addEventListener('mousemove', function(e) {
+  if (!_zDrag) { return; }
+  _zPanX = e.clientX - _zSx; _zPanY = e.clientY - _zSy;
+  _applyZoom();
+});
+window.addEventListener('mouseup', function() { _zDrag = false; document.body.style.cursor = ''; });
+
+// ── Run in visualizer ─────────────────────────────────────────────────────────
 function runInVisualizer() {
   var btn = document.getElementById('runBtn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Running…'; }
