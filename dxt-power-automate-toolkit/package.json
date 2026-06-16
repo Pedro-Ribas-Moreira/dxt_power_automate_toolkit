@@ -157,11 +157,6 @@
           "group": "navigation@2"
         },
         {
-          "command": "dxt-power-automate-toolkit.generateDocs",
-          "when": "view == dxt-power-automate.treeView",
-          "group": "navigation@3"
-        },
-        {
           "command": "dxt-power-automate-toolkit.filterLibrary",
           "when": "view == dxt-power-automate.libraryView",
           "group": "navigation@1"
@@ -184,14 +179,19 @@
           "group": "inline"
         },
         {
+          "command": "dxt-power-automate-toolkit.generateDocs",
+          "when": "view == dxt-power-automate.treeView && viewItem == solution-local",
+          "group": "inline@1"
+        },
+        {
           "command": "dxt-power-automate-toolkit.exportSolution",
           "when": "view == dxt-power-automate.treeView && viewItem == solution-local",
-          "group": "inline"
+          "group": "inline@2"
         },
         {
           "command": "dxt-power-automate-toolkit.importSolution",
           "when": "view == dxt-power-automate.treeView && viewItem == solution-local",
-          "group": "inline"
+          "group": "inline@3"
         },
         {
           "command": "dxt-power-automate-toolkit.viewFlow",

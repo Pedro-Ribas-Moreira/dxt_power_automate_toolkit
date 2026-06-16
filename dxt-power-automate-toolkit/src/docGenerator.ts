@@ -289,11 +289,13 @@ export interface SolutionDoc {
 export async function generateSolutionDocs(
   solutionsRoot: string,
   summarize?: Summarizer,
-  onProgress?: (msg: string) => void
+  onProgress?: (msg: string) => void,
+  onlySolution?: string   // if set, only process this solution folder name
 ): Promise<SolutionDoc[]> {
   const solutionDirs = fs.readdirSync(solutionsRoot, { withFileTypes: true })
     .filter(d => d.isDirectory())
-    .map(d => d.name);
+    .map(d => d.name)
+    .filter(d => !onlySolution || d === onlySolution);
 
   const today = new Date().toISOString().slice(0, 10);
   const results: SolutionDoc[] = [];

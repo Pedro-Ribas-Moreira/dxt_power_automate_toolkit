@@ -99,15 +99,25 @@ export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerA
           ? hasUnimportedChanges(localDir, this.solutionsRoot!, sol.SolutionUniqueName)
           : false;
         const kind: NodeKind = isLocal ? 'solution-local' : 'solution';
+
+        let flowCount = 0;
+        if (isLocal && localDir) {
+          const wfDir = path.join(localDir, 'Workflows');
+          try {
+            if (fs.existsSync(wfDir)) {
+              flowCount = fs.readdirSync(wfDir).filter(f => f.endsWith('.json')).length;
+            }
+          } catch { /* ignore */ }
+        }
+
         const node = new PowerAutomateNode(
           sol.FriendlyName,
           kind,
           isLocal ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
           { solution: sol, envUrl: env.EnvironmentUrl, envId: env.EnvironmentIdentifier?.Id, solutionLocalDir: localDir ?? '' }
         );
-        // #5 diff indicator: bullet means local changes not yet imported
         node.description = isLocal
-          ? `v${sol.VersionNumber} ✓${hasChanges ? ' ●' : ''}`
+          ? `v${sol.VersionNumber} ✓${hasChanges ? ' ●' : ''}${flowCount ? `  ${flowCount} flows` : ''}`
           : `v${sol.VersionNumber}`;
         node.tooltip = hasChanges
           ? `${sol.SolutionUniqueName}\n⚠ Local changes not yet imported`
@@ -128,8 +138,13 @@ export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerA
     const envUrl = solNode.payload?.envUrl;
     return flows.map(rawName => {
       const flowPath = path.join(dir, 'Workflows', `${rawName}.json`);
-      // strip trailing GUID from display name
-      const displayName = rawName.replace(/-[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/i, '');
+      // Try to read the human-readable display name from the flow JSON
+      let displayName = rawName.replace(/-[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/i, '');
+      try {
+        const json = JSON.parse(fs.readFileSync(flowPath, 'utf8'));
+        const name: unknown = json?.properties?.displayName;
+        if (typeof name === 'string' && name.trim()) { displayName = name.trim(); }
+      } catch { /* fall back to filename */ }
       const node = new PowerAutomateNode(displayName, 'flow', vscode.TreeItemCollapsibleState.None,
         { flowPath, solutionLocalDir: solNode.payload?.solutionLocalDir, envId, envUrl });
       node.tooltip = rawName;

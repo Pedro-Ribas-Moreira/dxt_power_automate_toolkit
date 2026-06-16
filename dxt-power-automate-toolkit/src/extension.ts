@@ -559,7 +559,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
 
     // ── Generate Markdown documentation ─────────────────────────────────────
-    vscode.commands.registerCommand('dxt-power-automate-toolkit.generateDocs', async () => {
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.generateDocs', async (node?: PowerAutomateNode) => {
       if (!solutionsRoot) {
         vscode.window.showWarningMessage('Open a workspace folder first.');
         return;
@@ -568,6 +568,9 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showWarningMessage('No solutions folder found — export at least one solution first.');
         return;
       }
+      // When triggered from a solution node, limit to that solution only
+      const onlySolution = node?.payload?.solution?.SolutionUniqueName
+        ?? (node?.payload?.solutionLocalDir ? path.basename(node.payload.solutionLocalDir) : undefined);
 
       // ── LM model selection — provider-agnostic (Claude, Copilot, etc.) ──────
       let summarize: ((prompt: string) => Promise<string>) | undefined;
@@ -634,14 +637,14 @@ export async function activate(context: vscode.ExtensionContext) {
         {
           location: vscode.ProgressLocation.Notification,
           title: summarize
-            ? `Generating docs with AI summaries (${modelLabel})…`
-            : 'Generating flow documentation…',
+            ? `Generating docs${onlySolution ? ` for ${onlySolution}` : ''} with AI summaries (${modelLabel})…`
+            : `Generating flow documentation${onlySolution ? ` for ${onlySolution}` : ''}…`,
           cancellable: false,
         },
         async (progress) => {
           solutionDocs = await generateSolutionDocs(solutionsRoot!, summarize, (msg) => {
             progress.report({ message: msg });
-          });
+          }, onlySolution);
         }
       );
 
