@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { PowerAutomateTreeProvider, PowerAutomateNode } from './treeProvider';
 import { exportAndUnpack, packAndImport, initPacPath, createSolution, listEnvironments, listSolutions } from './pacCli';
+import { loadCompanyContext, writeDefaultContext, CompanyContext } from './companyContext';
 import { generateSolutionDocs } from './docGenerator';
 import { initLogger, info, error } from './log';
 import { openFlowVisualizer } from './flowVisualizer';
@@ -15,6 +16,7 @@ export async function activate(context: vscode.ExtensionContext) {
   await initPacPath(context);
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
   const solutionsRoot = workspaceRoot ? path.join(workspaceRoot, 'solutions') : undefined;
+  let companyCtx: CompanyContext | null = workspaceRoot ? loadCompanyContext(workspaceRoot) : null;
   const provider = new PowerAutomateTreeProvider(solutionsRoot);
 
   // Library panel
@@ -644,7 +646,7 @@ export async function activate(context: vscode.ExtensionContext) {
         async (progress) => {
           solutionDocs = await generateSolutionDocs(solutionsRoot!, summarize, (msg) => {
             progress.report({ message: msg });
-          }, onlySolution);
+          }, onlySolution, companyCtx ?? undefined);
         }
       );
 
@@ -682,6 +684,19 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage(
         `✅ FLOWS.md generated for ${solutionDocs.length} solution${solutionDocs.length !== 1 ? 's' : ''}${summarize ? ` with AI summaries (${modelLabel})` : ''}`
       );
+    }),
+
+    // ── Setup company context ─────────────────────────────────────────────────
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.setupContext', async () => {
+      if (!workspaceRoot) {
+        vscode.window.showWarningMessage('Open a workspace folder first.');
+        return;
+      }
+      const filePath = writeDefaultContext(workspaceRoot);
+      companyCtx = loadCompanyContext(workspaceRoot);
+      const doc = await vscode.workspace.openTextDocument(filePath);
+      await vscode.window.showTextDocument(doc);
+      vscode.window.showInformationMessage('Edit company-context.json to match your organisation, then save. The extension will use it for AI summaries and naming suggestions.');
     }),
 
     // ── Search flows across solutions ────────────────────────────────────────
@@ -789,16 +804,44 @@ export async function activate(context: vscode.ExtensionContext) {
       });
       if (!uniqueName) { return; }
 
-      // Step 4: publisher prefix
-      const publisherPrefix = await vscode.window.showInputBox({
-        title: 'New Solution — Step 4 of 4',
-        prompt: 'Publisher prefix',
-        value: 'dta',
-        validateInput: v => /^[a-z][a-z0-9]{1,7}$/.test(v ?? '') ? undefined : '2-8 lowercase letters/numbers, must start with a letter'
-      });
+      // Step 4: brand / publisher prefix — show brands from company context if available
+      let publisherPrefix: string | undefined;
+      if (companyCtx?.brands.length) {
+        type BrandItem = vscode.QuickPickItem & { prefix: string };
+        const brandItems: BrandItem[] = companyCtx.brands.map(b => ({
+          label: b.name,
+          description: b.prefix.toLowerCase(),
+          detail: b.description,
+          prefix: b.prefix.toLowerCase(),
+        }));
+        const customItem: BrandItem = { label: '$(edit) Custom prefix…', description: '', prefix: '' };
+        const picked = await vscode.window.showQuickPick([...brandItems, customItem], {
+          title: 'New Solution — Step 4 of 4',
+          placeHolder: 'Select the brand this solution belongs to',
+        });
+        if (!picked) { return; }
+        if (picked.prefix) {
+          publisherPrefix = picked.prefix;
+        } else {
+          publisherPrefix = await vscode.window.showInputBox({
+            title: 'New Solution — Step 4 of 4',
+            prompt: 'Publisher prefix',
+            value: 'dta',
+            validateInput: v => /^[a-z][a-z0-9]{1,7}$/.test(v ?? '') ? undefined : '2-8 lowercase letters/numbers, must start with a letter'
+          });
+        }
+      } else {
+        publisherPrefix = await vscode.window.showInputBox({
+          title: 'New Solution — Step 4 of 4',
+          prompt: 'Publisher prefix',
+          value: 'dta',
+          validateInput: v => /^[a-z][a-z0-9]{1,7}$/.test(v ?? '') ? undefined : '2-8 lowercase letters/numbers, must start with a letter'
+        });
+      }
       if (!publisherPrefix) { return; }
 
-      const publisherName = publisherPrefix.toUpperCase();
+      const publisherName = companyCtx?.brands.find(b => b.prefix.toLowerCase() === publisherPrefix)?.name
+        ?? publisherPrefix.toUpperCase();
       const envUrl = envPick.env.EnvironmentUrl;
 
       await vscode.window.withProgress(

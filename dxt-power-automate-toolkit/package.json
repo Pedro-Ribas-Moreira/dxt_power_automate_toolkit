@@ -126,6 +126,12 @@
         "title": "Search Flows…",
         "icon": "$(list-filter)",
         "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.setupContext",
+        "title": "Setup Company Context",
+        "icon": "$(organization)",
+        "category": "Power Automate"
       }
     ],
     "configuration": {
@@ -149,6 +155,11 @@
           "command": "dxt-power-automate-toolkit.searchFlows",
           "when": "view == dxt-power-automate.treeView",
           "group": "navigation@2"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.setupContext",
+          "when": "view == dxt-power-automate.treeView",
+          "group": "navigation@3"
         },
         {
           "command": "dxt-power-automate-toolkit.filterLibrary",

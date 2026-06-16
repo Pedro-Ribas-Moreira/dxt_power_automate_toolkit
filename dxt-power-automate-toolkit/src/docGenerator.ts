@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { CompanyContext, buildAiContextBlock } from './companyContext';
 
 export type Summarizer = (prompt: string) => Promise<string>;
 
@@ -243,22 +244,27 @@ function parseFlowFile(flowFilePath: string): ParsedFlow | null {
 async function buildAiSummaries(
   solName: string,
   flows: ParsedFlow[],
-  summarize: Summarizer
+  summarize: Summarizer,
+  companyCtx?: CompanyContext
 ): Promise<AiSummaries | null> {
   const flowLines = flows.map((f, i) => {
     const topActions = f.actions.filter(a => a.depth === 0).slice(0, 8).map(a => a.name).join(', ');
     return `${i + 1}. "${f.displayName}": trigger=${f.triggerLabel}, connectors=[${f.connectors.join(', ') || 'none'}], key_steps=[${topActions}]`;
   }).join('\n');
 
-  const prompt = `You are writing documentation for Power Automate automation flows used at Prepay Power, an Irish energy company.
+  const contextBlock = companyCtx
+    ? `\n${buildAiContextBlock(companyCtx)}\n`
+    : '\nCompany: an Irish energy company\n';
 
+  const prompt = `You are writing technical documentation for Power Automate automation flows.
+${contextBlock}
 Solution: "${solName}"
 Flows:
 ${flowLines}
 
 Your task:
-1. For each flow, write exactly ONE sentence in plain business English describing what it does. Focus on the business outcome, not the technical steps.
-2. Write 2 sentences describing what this solution achieves as a whole — its business purpose and who benefits.
+1. For each flow, write exactly ONE sentence in plain business English describing what it does. Use the company/brand context above to identify which brand or product the flow relates to.
+2. Write 2 sentences describing what this solution achieves as a whole — its business purpose and which brand or team benefits.
 
 Respond ONLY with valid JSON (no markdown, no code fences, no other text):
 {
@@ -290,7 +296,8 @@ export async function generateSolutionDocs(
   solutionsRoot: string,
   summarize?: Summarizer,
   onProgress?: (msg: string) => void,
-  onlySolution?: string   // if set, only process this solution folder name
+  onlySolution?: string,
+  companyCtx?: CompanyContext
 ): Promise<SolutionDoc[]> {
   const solutionDirs = fs.readdirSync(solutionsRoot, { withFileTypes: true })
     .filter(d => d.isDirectory())
@@ -318,7 +325,7 @@ export async function generateSolutionDocs(
     if (summarize) {
       onProgress?.(`Summarising ${solName}…`);
       const validFlows = parsed.filter((p): p is ParsedFlow => p !== null);
-      aiSummaries = await buildAiSummaries(solName, validFlows, summarize);
+      aiSummaries = await buildAiSummaries(solName, validFlows, summarize, companyCtx);
     }
 
     const lines: string[] = [
