@@ -2,19 +2,132 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { PowerAutomateTreeProvider, PowerAutomateNode } from './treeProvider';
-import { exportAndUnpack, packAndImport, initPacPath, createSolution, listEnvironments, listSolutions } from './pacCli';
+import { exportAndUnpack, packAndImport, initPacPath, createSolution, listEnvironments, listSolutions, writeTemplateFlow, addWorkflowComponent } from './pacCli';
 import { loadCompanyContext, writeDefaultContext, CompanyContext } from './companyContext';
 import { generateSolutionDocs } from './docGenerator';
 import { initLogger, info, error } from './log';
 import { openFlowVisualizer } from './flowVisualizer';
 import { LibraryProvider, LibraryNode } from './libraryProvider';
-import { buildLibrary, saveLibrary, loadLibrary, generateClaudeMd } from './libraryBuilder';
+import { buildLibrary, saveLibrary, loadLibrary, generateClaudeMd, mergeLibraries } from './libraryBuilder';
 import { importFromJson, importFromCsv, importFromClipboardText, saveMockEntry, getMockDataPath, listApiActions, listMockActions } from './mockDataImporter';
+import { initSharePoint, spUpload, spDownload, spListFolder, storeClientSecret, getStoredClientSecret, spDiscoverSites, spDiscoverLists, spDiscoverColumns } from './sharepoint';
+import { resolveEnvName, getFlowRuns, getFlowRunDetail } from './paApi';
+import { openFlowRunsPanel } from './flowRunsPanel';
+import { buildCloudIndex, renderIndexMarkdown } from './cloudIndexBuilder';
 
 export async function activate(context: vscode.ExtensionContext) {
   initLogger(context);
+  initSharePoint(context);
+
+  // First run: store the client secret securely if not already saved
+  const existingSecret = await getStoredClientSecret();
+  if (!existingSecret) {
+    const secret = await vscode.window.showInputBox({
+      title: 'DXT Power Automate Toolkit — SharePoint Setup',
+      prompt: 'Paste the Azure AD client secret provided by IT (stored encrypted, asked only once)',
+      password: true,
+      placeHolder: 'Client secret…',
+    });
+    if (secret) { await storeClientSecret(secret); }
+  }
+
   await initPacPath(context);
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+
+  // Deep-merge two JSON values. `local` takes precedence for scalar conflicts.
+  // Arrays of strings → union. Arrays of objects → merge by first found key (name/id/url/key).
+  function deepMergeJson(base: any, local: any): any {
+    if (local === null || local === undefined) { return base; }
+    if (base === null || base === undefined) { return local; }
+    if (Array.isArray(base) && Array.isArray(local)) {
+      if (local.length === 0) { return base; }
+      if (typeof local[0] === 'string') {
+        return [...new Set([...local, ...base.filter((i: any) => typeof i === 'string')])];
+      }
+      const keyField = ['name', 'id', 'url', 'key', 'webUrl'].find(k => local[0]?.[k] !== undefined);
+      if (keyField) {
+        const map = new Map<string, any>(base.map((i: any) => [String(i[keyField]), i]));
+        for (const item of local) {
+          const k = String(item[keyField]);
+          map.set(k, map.has(k) ? deepMergeJson(map.get(k), item) : item);
+        }
+        return [...map.values()];
+      }
+      return local; // object arrays without a clear key: local wins
+    }
+    if (typeof base === 'object' && typeof local === 'object' && !Array.isArray(base)) {
+      const result: any = { ...base };
+      for (const [k, v] of Object.entries(local)) { result[k] = deepMergeJson(base[k], v); }
+      return result;
+    }
+    return local; // scalar: local wins
+  }
+
+  // Download shared context from SharePoint, deep-merge local into it, upload merged result.
+  async function mergeAndUploadContext(spFileName: string, localContent: string): Promise<void> {
+    let merged = localContent;
+    try {
+      const sharedJson = await spDownload(spFileName);
+      if (sharedJson) {
+        const base = JSON.parse(sharedJson);
+        const local = JSON.parse(localContent);
+        merged = JSON.stringify(deepMergeJson(base, local), null, 2);
+      }
+    } catch { /* no shared copy or parse error — upload as-is */ }
+    await spUpload(spFileName, merged);
+  }
+
+  // Merge local library into the shared SharePoint copy, then upload the combined result.
+  // This preserves contributions from teammates who have different solutions locally.
+  async function mergeAndUploadLibrary(local: import('./libraryBuilder').Library): Promise<void> {
+    try {
+      const sharedJson = await spDownload('pa-library.json');
+      if (sharedJson) {
+        const shared: import('./libraryBuilder').Library = JSON.parse(sharedJson);
+        local = mergeLibraries(shared, local); // local (patch) takes precedence
+      }
+    } catch { /* no shared copy yet — upload as-is */ }
+    await spUpload('pa-library.json', JSON.stringify(local, null, 2));
+    info(`Library synced to SharePoint (${local.flowsScanned} flows, ${local.topicsScanned} topics)`);
+  }
+
+  // Silently pull shared files from SharePoint on startup
+  if (workspaceRoot) {
+    const contextLocalPath = path.join(workspaceRoot, 'company-context.json');
+    const solutionsRootEarly = path.join(workspaceRoot, 'solutions');
+    const libLocalPath = path.join(solutionsRootEarly, '.pa-library.json');
+    Promise.all([
+      // Always pull the latest cloud index
+      spDownload('cloud-index.md').then(content => {
+        if (content) {
+          fs.writeFileSync(path.join(workspaceRoot, 'DXT_CLOUD_INDEX.md'), content, 'utf8');
+          info('Cloud index pulled from SharePoint');
+        }
+      }),
+      // Always merge shared company context with local — neither side loses data
+      spDownload('company-context.json').then(sharedContent => {
+        if (!sharedContent) { return; }
+        const local = fs.existsSync(contextLocalPath) ? fs.readFileSync(contextLocalPath, 'utf8') : null;
+        const merged = local
+          ? JSON.stringify(deepMergeJson(JSON.parse(sharedContent), JSON.parse(local)), null, 2)
+          : sharedContent;
+        fs.writeFileSync(contextLocalPath, merged, 'utf8');
+        companyCtx = loadCompanyContext(workspaceRoot);
+        info('Company context merged from SharePoint');
+      }).catch(e => info(`Company context startup merge skipped: ${e.message}`)),
+      // Action library: pull if no local file, otherwise merge+push local copy to SharePoint
+      fs.existsSync(libLocalPath)
+        ? mergeAndUploadLibrary(JSON.parse(fs.readFileSync(libLocalPath, 'utf8')))
+            .catch(e => info(`Action library startup upload skipped: ${e.message}`))
+        : spDownload('pa-library.json').then(content => {
+            if (content) {
+              fs.mkdirSync(solutionsRootEarly, { recursive: true });
+              fs.writeFileSync(libLocalPath, content, 'utf8');
+              info('Action library pulled from SharePoint');
+            }
+          }),
+    ]).catch(() => { /* not signed in yet or files don't exist — ignore */ });
+  }
   const solutionsRoot = workspaceRoot ? path.join(workspaceRoot, 'solutions') : undefined;
   let companyCtx: CompanyContext | null = workspaceRoot ? loadCompanyContext(workspaceRoot) : null;
   const provider = new PowerAutomateTreeProvider(solutionsRoot);
@@ -84,9 +197,12 @@ export async function activate(context: vscode.ExtensionContext) {
             // auto-rebuild library after each export
             const lib = buildLibrary(dest);
             saveLibrary(lib, dest);
-            generateClaudeMd(lib, dest);
+            const _wr1 = workspaceRoot ?? path.join(dest, '..');
+            generateClaudeMd(lib, dest, _wr1);
             libProvider.setLibrary(lib);
             info(`Library rebuilt — ${lib.flowsScanned} flows across ${lib.solutionsScanned} solutions`);
+            mergeAndUploadLibrary(lib).catch(e => info(`Library SharePoint sync skipped: ${e.message}`));
+            spUpload('CLAUDE.md', fs.readFileSync(path.join(_wr1, 'CLAUDE.md'), 'utf8')).catch(e => info(`CLAUDE.md SharePoint upload skipped: ${e.message}`));
           } catch (e: any) {
             error(`Export failed: ${solution.SolutionUniqueName}`, e.message);
             vscode.window.showErrorMessage(`Export failed: ${e.message}`);
@@ -150,8 +266,12 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       const lib = buildLibrary(solutionsRoot);
       saveLibrary(lib, solutionsRoot);
-      generateClaudeMd(lib, solutionsRoot);
+      generateClaudeMd(lib, solutionsRoot, workspaceRoot);
       libProvider.setLibrary(lib);
+      mergeAndUploadLibrary(lib).catch(e => info(`Library SharePoint sync skipped: ${e.message}`));
+      if (workspaceRoot && fs.existsSync(path.join(workspaceRoot, 'CLAUDE.md'))) {
+        spUpload('CLAUDE.md', fs.readFileSync(path.join(workspaceRoot, 'CLAUDE.md'), 'utf8')).catch(e => info(`CLAUDE.md SharePoint upload skipped: ${e.message}`));
+      }
       vscode.window.showInformationMessage(`✅ Library built — ${lib.flowsScanned} flows across ${lib.solutionsScanned} solutions`);
     }),
 
@@ -273,28 +393,27 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       const picks = await vscode.window.showQuickPick(
-        solutions.slice(0, 30).map((s: any, i: number) => ({
+        solutions.map((s: any, i: number) => ({
           label: s.FriendlyName,
           description: `v${s.VersionNumber}`,
           detail: s.SolutionUniqueName,
           solution: s,
-          picked: i < 10
+          picked: i < 5
         })),
         {
-          title: 'Deep Scan — Step 2 of 3: Select solutions (max 10)',
-          placeHolder: 'First 10 are pre-selected — uncheck any you want to skip',
+          title: 'Deep Scan — Step 2 of 3: Select solutions',
+          placeHolder: 'First 5 are pre-selected — check/uncheck as needed',
           canPickMany: true
         }
       );
       if (!picks?.length) { return; }
 
-      const selected = (picks as any[]).slice(0, 10);
-      const estMins = selected.length * 4;
+      const selected = picks as any[];
+      const estMins = selected.length;
 
       // Step 3: confirm
       const go = await vscode.window.showInformationMessage(
-        `Scan ${selected.length} solution${selected.length > 1 ? 's' : ''} from "${envPick.env.FriendlyName}"?\n\n` +
-        `Each solution: ~1 min export + 3 min cooldown\nEstimated total: ~${estMins} min`,
+        `Scan ${selected.length} solution${selected.length > 1 ? 's' : ''} from "${envPick.env.FriendlyName}"?\n\nEstimated total: ~${estMins} min`,
         { modal: true }, 'Start Scan'
       );
       if (go !== 'Start Scan') { return; }
@@ -305,7 +424,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
       for (let i = 0; i < selected.length; i++) {
         const sol = selected[i].solution;
-        const isLast = i === selected.length - 1;
 
         await vscode.window.withProgress(
           { location: vscode.ProgressLocation.Notification, title: `Deep Scan ${i + 1}/${selected.length}: ${sol.FriendlyName}`, cancellable: false },
@@ -320,19 +438,19 @@ export async function activate(context: vscode.ExtensionContext) {
               // Rebuild library immediately after each export
               const lib = buildLibrary(solutionsRoot);
               saveLibrary(lib, solutionsRoot);
-              generateClaudeMd(lib, solutionsRoot);
+              generateClaudeMd(lib, solutionsRoot, workspaceRoot);
               libProvider.setLibrary(lib);
               info(`Library updated — ${lib.flowsScanned} flows indexed`);
+              mergeAndUploadLibrary(lib).catch(e => info(`Library SharePoint sync skipped: ${e.message}`));
+              if (workspaceRoot && fs.existsSync(path.join(workspaceRoot, 'CLAUDE.md'))) {
+                spUpload('CLAUDE.md', fs.readFileSync(path.join(workspaceRoot, 'CLAUDE.md'), 'utf8')).catch(e => info(`CLAUDE.md SharePoint upload skipped: ${e.message}`));
+              }
               provider.refresh();
             } catch (e: any) {
               failed++;
               error(`Deep Scan: failed on ${sol.SolutionUniqueName}`, e.message);
             }
 
-            // 3-minute cooldown between solutions (skip after last)
-            if (!isLast) {
-              await countdown(progress, 3 * 60);
-            }
           }
         );
       }
@@ -354,6 +472,14 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
 
     vscode.commands.registerCommand('dxt-power-automate-toolkit.copySnippet', async (node: LibraryNode) => {
+      // Bot pattern — snippet is already a raw string (YAML or JSON)
+      const botPattern = node.payload?.botPattern;
+      if (botPattern) {
+        await vscode.env.clipboard.writeText(botPattern.snippet);
+        vscode.window.showInformationMessage(`📋 Bot pattern copied — paste it into your topic YAML`);
+        return;
+      }
+      // Flow action snippet
       const ex = node.payload?.example;
       const op = node.payload?.operation;
       const snippet = ex?.snippet ?? op?.examples?.[0]?.snippet;
@@ -365,9 +491,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // ── Open in Browser ──────────────────────────────────────────────────────
     vscode.commands.registerCommand('dxt-power-automate-toolkit.openInBrowser', async (node: PowerAutomateNode) => {
-      const { flowPath, envId, solution, envUrl } = node.payload ?? {};
+      const { flowPath, envId, envIsDefault, solutionId, solution, envUrl } = node.payload ?? {};
 
-      if (flowPath && envId) {
+      // The default environment uses "Default-{envId}" in maker portal URLs; others use just envId
+      const envSegment = envId ? (envIsDefault ? `Default-${envId}` : envId) : undefined;
+
+      if (flowPath && envSegment) {
         // Flow node — extract the GUID from the filename
         const rawName = path.basename(flowPath, '.json');
         const guidMatch = rawName.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
@@ -375,21 +504,24 @@ export async function activate(context: vscode.ExtensionContext) {
           vscode.window.showErrorMessage('Could not extract flow GUID from filename. Expected format: FlowName-{GUID}.json');
           return;
         }
-        const flowGuid = guidMatch[1];
-        const url = `https://make.powerautomate.com/environments/${envId}/flows/${flowGuid}`;
+        const flowGuid = guidMatch[1].toLowerCase();
+        const url = solutionId
+          ? `https://make.powerautomate.com/environments/${envSegment}/solutions/${solutionId}/flows/${flowGuid}/details`
+          : `https://make.powerautomate.com/environments/${envSegment}/flows/${flowGuid}`;
         await vscode.env.openExternal(vscode.Uri.parse(url));
         return;
       }
 
-      if (solution && envId) {
-        // Solution node — open the environment's solutions page (we don't have the solution GUID)
-        const url = `https://make.powerautomate.com/environments/${envId}/solutions`;
+      if (solution && envSegment) {
+        const solId = solution.Id ?? solution.SolutionId;
+        const url = solId
+          ? `https://make.powerautomate.com/environments/${envSegment}/solutions/${solId}`
+          : `https://make.powerautomate.com/environments/${envSegment}/solutions`;
         await vscode.env.openExternal(vscode.Uri.parse(url));
         return;
       }
 
       if (envUrl) {
-        // Fallback: open the environment's maker portal via its org URL
         await vscode.env.openExternal(vscode.Uri.parse('https://make.powerautomate.com'));
         return;
       }
@@ -536,8 +668,12 @@ export async function activate(context: vscode.ExtensionContext) {
             await exportAndUnpack(matchedEnv.EnvironmentUrl, picked.solution.SolutionUniqueName, solutionsRoot!);
             const lib = buildLibrary(solutionsRoot!);
             saveLibrary(lib, solutionsRoot!);
-            generateClaudeMd(lib, solutionsRoot!);
+            generateClaudeMd(lib, solutionsRoot!, workspaceRoot);
             libProvider.setLibrary(lib);
+            mergeAndUploadLibrary(lib).catch(e => info(`Library SharePoint sync skipped: ${e.message}`));
+            if (workspaceRoot && fs.existsSync(path.join(workspaceRoot, 'CLAUDE.md'))) {
+              spUpload('CLAUDE.md', fs.readFileSync(path.join(workspaceRoot, 'CLAUDE.md'), 'utf8')).catch(e => info(`CLAUDE.md SharePoint upload skipped: ${e.message}`));
+            }
             provider.refresh();
 
             // Try to open the flow now that it's exported
@@ -684,6 +820,210 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage(
         `✅ FLOWS.md generated for ${solutionDocs.length} solution${solutionDocs.length !== 1 ? 's' : ''}${summarize ? ` with AI summaries (${modelLabel})` : ''}`
       );
+
+      // Offer to share FLOWS.md files to SharePoint
+      const upload = await vscode.window.showInformationMessage(
+        `Share FLOWS.md to SharePoint so your team can see it?`,
+        'Upload to SharePoint', 'Skip'
+      );
+      if (upload === 'Upload to SharePoint') {
+        try {
+          await vscode.window.withProgress(
+            { location: vscode.ProgressLocation.Notification, title: 'Uploading FLOWS.md to SharePoint…', cancellable: false },
+            async () => {
+              for (const sol of solutionDocs) {
+                const content = fs.readFileSync(sol.outPath, 'utf8');
+                await spUpload(`solutions/${sol.solName}/FLOWS.md`, content);
+                info(`Uploaded FLOWS.md for ${sol.solName} to SharePoint`);
+              }
+            }
+          );
+          vscode.window.showInformationMessage('✅ FLOWS.md uploaded — teammates can now pull the latest docs.');
+        } catch (e: any) {
+          error('FLOWS.md SharePoint upload failed', e.message);
+          vscode.window.showErrorMessage(`SharePoint upload failed: ${e.message}`);
+        }
+      }
+    }),
+
+    // ── Flow run history ─────────────────────────────────────────────────────
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.viewFlowRuns', async (node: PowerAutomateNode) => {
+      const { flowPath, envUrl, solution } = node?.payload ?? {};
+      if (!flowPath || !envUrl) {
+        vscode.window.showWarningMessage('Select a flow from the Environments panel first.');
+        return;
+      }
+
+      // Extract flow GUID from filename
+      const rawName = path.basename(flowPath, '.json');
+      const guidMatch = rawName.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+      if (!guidMatch) {
+        vscode.window.showErrorMessage('Could not extract flow ID from filename.');
+        return;
+      }
+      const flowId = guidMatch[1];
+      const flowName = rawName.replace(/-[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/i, '').replace(/-/g, ' ');
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: `Loading runs for "${flowName}"…`, cancellable: false },
+        async () => {
+          try {
+            info(`Flow runs: resolving environment for ${envUrl}`);
+            const envName = await resolveEnvName(envUrl);
+            if (!envName) {
+              vscode.window.showErrorMessage(
+                `Could not match environment "${envUrl}" to a Power Automate environment. ` +
+                `Make sure the "Flows.Read.All" permission is granted for the app registration.`
+              );
+              return;
+            }
+
+            info(`Flow runs: fetching for flow ${flowId} in ${envName}`);
+            const runs = await getFlowRuns(envName, flowId, 20);
+
+            if (!runs.length) {
+              vscode.window.showInformationMessage(`No runs found for "${flowName}" — the flow may not have run yet.`);
+              return;
+            }
+
+            info(`Flow runs: opening panel with ${runs.length} run(s)`);
+            openFlowRunsPanel(context, flowName, runs, (runId) =>
+              getFlowRunDetail(envName, flowId, runId)
+            );
+          } catch (e: any) {
+            error('Flow runs: failed', e.message);
+            vscode.window.showErrorMessage(`Could not load flow runs: ${e.message}`);
+          }
+        }
+      );
+    }),
+
+    // ── Discover SharePoint sites & lists ────────────────────────────────────
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.discoverSharePoint', async () => {
+      if (!workspaceRoot) {
+        vscode.window.showWarningMessage('Open a workspace folder first.');
+        return;
+      }
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'SharePoint Discovery', cancellable: true },
+        async (progress, token) => {
+
+          // ── Phase 1: list sites ──────────────────────────────────────────
+          progress.report({ message: 'Listing accessible sites…' });
+          info('=== SharePoint Discovery started ===');
+          let sites: import('./sharepoint').SpSite[];
+          try {
+            sites = await spDiscoverSites();
+          } catch (e: any) {
+            error('SharePoint discovery failed at site listing', e.message);
+            vscode.window.showErrorMessage(`Discovery failed: ${e.message}`);
+            return;
+          }
+
+          if (token.isCancellationRequested) { info('Discovery cancelled by user after site listing'); return; }
+
+          if (!sites.length) {
+            vscode.window.showWarningMessage('No SharePoint sites found for your account.');
+            return;
+          }
+
+          // ── Phase 2: let user pick which sites to scan ───────────────────
+          type SiteItem = vscode.QuickPickItem & { site: import('./sharepoint').SpSite };
+          const siteItems: SiteItem[] = sites.map(s => ({
+            label: s.displayName,
+            description: s.webUrl,
+            picked: s.webUrl.includes('Omni-Channel'),
+            site: s,
+          }));
+
+          const picked = await vscode.window.showQuickPick(siteItems, {
+            title: `Found ${sites.length} site(s) — select which to scan for lists`,
+            canPickMany: true,
+            placeHolder: 'Space to select/deselect, Enter to confirm',
+          });
+
+          if (!picked?.length) { info('Discovery cancelled — no sites selected'); return; }
+          if (token.isCancellationRequested) { info('Discovery cancelled by user'); return; }
+
+          info(`Scanning lists in ${picked.length} site(s): ${picked.map(p => p.label).join(', ')}`);
+
+          // ── Phase 3: scan lists + columns per site ───────────────────────
+          const result: Array<{
+            id: string; displayName: string; webUrl: string;
+            lists: Array<{ id: string; displayName: string; name: string; columns: import('./sharepoint').SpColumn[] }>;
+          }> = [];
+
+          for (const item of picked) {
+            if (token.isCancellationRequested) { info('Discovery cancelled mid-scan'); break; }
+
+            const s = item.site;
+            progress.report({ message: `Scanning "${s.displayName}"…` });
+            info(`--- Scanning site: ${s.displayName} ---`);
+
+            let lists: import('./sharepoint').SpList[];
+            try {
+              lists = await spDiscoverLists(s.id);
+            } catch (e: any) {
+              error(`Could not list lists in "${s.displayName}"`, e.message);
+              continue;
+            }
+
+            if (!lists.length) {
+              info(`No lists found in "${s.displayName}"`);
+              result.push({ ...s, lists: [] });
+              continue;
+            }
+
+            const enrichedLists: typeof result[number]['lists'] = [];
+            for (const list of lists) {
+              if (token.isCancellationRequested) { break; }
+              progress.report({ message: `"${s.displayName}" → "${list.displayName}"…` });
+              info(`  Getting columns for list: ${list.displayName}`);
+              let columns: import('./sharepoint').SpColumn[] = [];
+              try {
+                columns = await spDiscoverColumns(s.id, list.id);
+                info(`    ${columns.length} column(s): ${columns.map(c => c.name).join(', ')}`);
+              } catch (e: any) {
+                info(`    Could not get columns: ${e.message}`);
+              }
+              enrichedLists.push({ ...list, columns });
+            }
+            result.push({ ...s, lists: enrichedLists });
+          }
+
+          if (!result.length) { info('Discovery complete — no data to save'); return; }
+
+          // ── Phase 4: save to sharepoint-context.json ─────────────────────
+          const totalLists = result.reduce((n, s) => n + s.lists.length, 0);
+          const totalCols  = result.reduce((n, s) => n + s.lists.reduce((m, l) => m + l.columns.length, 0), 0);
+          info(`=== Discovery complete: ${result.length} site(s), ${totalLists} list(s), ${totalCols} column(s) ===`);
+
+          const outPath = path.join(workspaceRoot, 'sharepoint-context.json');
+          const payload = { discoveredAt: new Date().toISOString(), sites: result };
+          fs.writeFileSync(outPath, JSON.stringify(payload, null, 2), 'utf8');
+          info(`Saved → ${outPath}`);
+
+          // Open the file so the user can review it
+          const doc = await vscode.workspace.openTextDocument(outPath);
+          await vscode.window.showTextDocument(doc);
+
+          const action = await vscode.window.showInformationMessage(
+            `✅ Discovered ${totalLists} lists across ${result.length} site(s). Review the file — delete anything sensitive — then share to SharePoint?`,
+            'Upload to SharePoint', 'Keep local only'
+          );
+          if (action === 'Upload to SharePoint') {
+            try {
+              await mergeAndUploadContext('sharepoint-context.json', fs.readFileSync(outPath, 'utf8'));
+              info('sharepoint-context.json merged and uploaded to SharePoint');
+              vscode.window.showInformationMessage('✅ SharePoint context uploaded — teammates will get it automatically.');
+            } catch (e: any) {
+              error('SharePoint context upload failed', e.message);
+              vscode.window.showErrorMessage(`Upload failed: ${e.message}`);
+            }
+          }
+        }
+      );
     }),
 
     // ── Setup company context ─────────────────────────────────────────────────
@@ -696,7 +1036,100 @@ export async function activate(context: vscode.ExtensionContext) {
       companyCtx = loadCompanyContext(workspaceRoot);
       const doc = await vscode.workspace.openTextDocument(filePath);
       await vscode.window.showTextDocument(doc);
-      vscode.window.showInformationMessage('Edit company-context.json to match your organisation, then save. The extension will use it for AI summaries and naming suggestions.');
+      const upload = await vscode.window.showInformationMessage(
+        'Edit company-context.json with your organisation\'s brands, terms and systems, then save. Share it to SharePoint so your teammates get the same knowledge automatically?',
+        'Upload to SharePoint', 'Keep local only'
+      );
+      if (upload === 'Upload to SharePoint') {
+        try {
+          await mergeAndUploadContext('company-context.json', fs.readFileSync(filePath, 'utf8'));
+          vscode.window.showInformationMessage('✅ Company context merged & uploaded — teammates will get it on next refresh.');
+          info('Company context merged and uploaded to SharePoint via setupContext');
+        } catch (e: any) {
+          error('Company context SharePoint upload failed', e.message);
+          vscode.window.showWarningMessage(`SharePoint upload failed: ${e.message}`);
+        }
+      }
+    }),
+
+    // ── Dataverse: check import dependencies ─────────────────────────────────
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.checkDependencies', async (node: PowerAutomateNode) => {
+      const { solution, envUrl: sourceEnvUrl } = node?.payload ?? {};
+      if (!solution || !sourceEnvUrl) { return; }
+
+      let envs: Awaited<ReturnType<typeof listEnvironments>>;
+      try {
+        envs = await listEnvironments();
+      } catch (e: any) {
+        vscode.window.showErrorMessage(`Could not load environments: ${e.message}`);
+        return;
+      }
+
+      const targetPick = await vscode.window.showQuickPick(
+        envs
+          .filter(e => e.EnvironmentUrl !== sourceEnvUrl)
+          .map(e => ({ label: e.FriendlyName, detail: e.EnvironmentUrl, env: e })),
+        { title: `Check dependencies — import "${solution.FriendlyName}" into which environment?` }
+      );
+      if (!targetPick) { return; }
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: `Checking dependencies…`, cancellable: false },
+        async () => {
+          try {
+            const { dvCheckDependencies } = await import('./dataverseApi');
+            const result = await dvCheckDependencies(sourceEnvUrl, solution.SolutionUniqueName, targetPick.env.EnvironmentUrl);
+            const panel = vscode.window.createWebviewPanel('dxt-deps', `Dependencies — ${solution.FriendlyName}`, vscode.ViewColumn.One, {});
+            const missingRows = result.missing.map(r =>
+              `<tr><td class="icon">✗</td><td class="name">${r.connectionreferencedisplayname}</td><td class="schema">${r.connectionreferencelogicalname}</td><td class="status miss">Missing</td></tr>`
+            ).join('');
+            const presentRows = result.present.map(r =>
+              `<tr><td class="icon">✓</td><td class="name">${r.connectionreferencedisplayname}</td><td class="schema">${r.connectionreferencelogicalname}</td><td class="status ok">Present</td></tr>`
+            ).join('');
+            panel.webview.html = `<!doctype html><html><head><meta charset="UTF-8">
+<style>
+body{font:13px/1.5 'Segoe UI',sans-serif;background:#1e1e1e;color:#ccc;padding:16px}
+h1{font-size:15px;margin-bottom:4px}
+.meta{color:#888;font-size:11px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:6px 8px;border-bottom:1px solid #3c3c3c;color:#888;font-size:11px;text-transform:uppercase}
+td{padding:6px 8px;border-bottom:1px solid #2a2a2a}
+.icon{width:24px;font-size:16px}
+.schema{font-family:monospace;font-size:11px;color:#888}
+.status{font-size:11px;font-weight:600}
+.miss{color:#f48771}.ok{color:#4ec9b0}
+.summary{display:flex;gap:16px;margin-bottom:16px}
+.pill{padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600}
+.pill.miss{background:rgba(244,135,113,.15);color:#f48771}
+.pill.ok{background:rgba(78,201,176,.15);color:#4ec9b0}
+</style></head><body>
+<h1>Import Dependencies — ${solution.FriendlyName}</h1>
+<div class="meta">Source: ${sourceEnvUrl}<br>Target: ${targetPick.env.EnvironmentUrl}</div>
+<div class="summary">
+  <span class="pill miss">✗ ${result.missing.length} Missing</span>
+  <span class="pill ok">✓ ${result.present.length} Present</span>
+</div>
+<table>
+<thead><tr><th></th><th>Connection Reference</th><th>Logical Name</th><th>Status</th></tr></thead>
+<tbody>${missingRows}${presentRows}</tbody>
+</table>
+${result.missing.length ? `<p style="margin-top:16px;color:#f48771;font-size:12px">⚠ Create the missing connections in <b>${targetPick.label}</b> before importing this solution, then map them during import.</p>` : `<p style="margin-top:16px;color:#4ec9b0;font-size:12px">✅ All connection references are present — this solution should import cleanly.</p>`}
+</body></html>`;
+            info(`Dependency check: ${result.missing.length} missing, ${result.present.length} present`);
+          } catch (e: any) {
+            error('Dependency check failed', e.message);
+            vscode.window.showErrorMessage(`Dependency check failed: ${e.message}`);
+          }
+        }
+      );
+    }),
+
+    // ── Dataverse: manage environment variables ──────────────────────────────
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.manageEnvVars', async (node: PowerAutomateNode) => {
+      const { solution, envUrl } = node?.payload ?? {};
+      if (!solution || !envUrl) { return; }
+      const { openEnvVarPanel } = await import('./envVarPanel');
+      await openEnvVarPanel(context, solution.FriendlyName, solution.SolutionUniqueName, envUrl);
     }),
 
     // ── Search flows across solutions ────────────────────────────────────────
@@ -765,84 +1198,217 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }),
 
-    vscode.commands.registerCommand('dxt-power-automate-toolkit.newSolution', async () => {
+    // ── Build & share cloud index ─────────────────────────────────────────────
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.buildCloudIndex', async () => {
+      let envs: Awaited<ReturnType<typeof listEnvironments>>;
+      try {
+        envs = await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: 'Cloud Index: loading environments…', cancellable: false },
+          () => listEnvironments()
+        );
+      } catch (e: any) {
+        vscode.window.showErrorMessage(`Could not load environments: ${e.message}`);
+        return;
+      }
+
+      let index: Awaited<ReturnType<typeof buildCloudIndex>>;
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'Building cloud index…', cancellable: false },
+        async (progress) => {
+          // Find solution names that already have FLOWS.md on SharePoint
+          const sharedFolders = await spListFolder('solutions').catch(() => [] as string[]);
+          const sharedDocNames = new Set(sharedFolders);
+
+          index = await buildCloudIndex(
+            envs,
+            solutionsRoot,
+            (msg) => { progress.report({ message: msg }); info(`Cloud Index: ${msg}`); },
+            sharedDocNames
+          );
+        }
+      );
+
+      const markdown = renderIndexMarkdown(index!);
+
+      // Save locally so AI can read it in this workspace
+      if (workspaceRoot) {
+        fs.writeFileSync(path.join(workspaceRoot, 'DXT_CLOUD_INDEX.md'), markdown, 'utf8');
+      }
+
+      // Upload to SharePoint
+      try {
+        await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: 'Uploading to SharePoint…', cancellable: false },
+          async () => {
+            await spUpload('cloud-index.md', markdown);
+            info('Cloud index uploaded to SharePoint');
+            // Also upload company context so teammates get the same domain knowledge
+            if (workspaceRoot) {
+              const ctxPath = path.join(workspaceRoot, 'company-context.json');
+              if (fs.existsSync(ctxPath)) {
+                await mergeAndUploadContext('company-context.json', fs.readFileSync(ctxPath, 'utf8'));
+                info('Company context merged and uploaded to SharePoint');
+              }
+            }
+          }
+        );
+        vscode.window.showInformationMessage('✅ Cloud index and company context shared on SharePoint — teammates will see it on next refresh.');
+      } catch (e: any) {
+        error('SharePoint upload failed', e.message);
+        vscode.window.showWarningMessage(`Saved locally but SharePoint upload failed: ${e.message}`);
+      }
+    }),
+
+    // ── Pull latest shared index from SharePoint ──────────────────────────────
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.pullSharedIndex', async () => {
+      if (!workspaceRoot) {
+        vscode.window.showWarningMessage('Open a workspace folder first.');
+        return;
+      }
+      try {
+        let pulled = 0;
+        await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: 'Pulling latest files from SharePoint…', cancellable: false },
+          async (progress) => {
+            // Cloud index
+            progress.report({ message: 'cloud index…' });
+            const indexContent = await spDownload('cloud-index.md');
+            if (indexContent) {
+              fs.writeFileSync(path.join(workspaceRoot!, 'DXT_CLOUD_INDEX.md'), indexContent, 'utf8');
+              pulled++;
+              info('Cloud index pulled from SharePoint');
+            }
+            // Company context — merge shared into local so neither side loses data
+            progress.report({ message: 'company context…' });
+            const ctxContent = await spDownload('company-context.json');
+            if (ctxContent) {
+              const ctxPath = path.join(workspaceRoot!, 'company-context.json');
+              const local = fs.existsSync(ctxPath) ? fs.readFileSync(ctxPath, 'utf8') : null;
+              const merged = local
+                ? JSON.stringify(deepMergeJson(JSON.parse(ctxContent), JSON.parse(local)), null, 2)
+                : ctxContent;
+              fs.writeFileSync(ctxPath, merged, 'utf8');
+              companyCtx = loadCompanyContext(workspaceRoot!);
+              pulled++;
+              info('Company context merged from SharePoint');
+            }
+          }
+        );
+
+        if (!pulled) {
+          vscode.window.showInformationMessage('Nothing found on SharePoint yet. Ask a teammate to run "Build & Share Cloud Index" first.');
+          return;
+        }
+        const doc = await vscode.workspace.openTextDocument(path.join(workspaceRoot!, 'DXT_CLOUD_INDEX.md'));
+        await vscode.window.showTextDocument(doc);
+        vscode.window.showInformationMessage(`✅ Pulled ${pulled} file${pulled !== 1 ? 's' : ''} from SharePoint — cloud index and company context are up to date.`);
+      } catch (e: any) {
+        error('Pull from SharePoint failed', e.message);
+        vscode.window.showErrorMessage(`Could not pull from SharePoint: ${e.message}`);
+      }
+    }),
+
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.newSolution', async (node?: PowerAutomateNode) => {
       if (!solutionsRoot) {
         vscode.window.showWarningMessage('Open a workspace folder before creating a solution.');
         return;
       }
 
-      // Step 1: pick environment
-      let envs: Awaited<ReturnType<typeof listEnvironments>>;
-      try {
-        envs = await listEnvironments();
-      } catch {
-        vscode.window.showErrorMessage('Could not load environments. Is pac authenticated?');
-        return;
-      }
-      const envPick = await vscode.window.showQuickPick(
-        envs.map(e => ({ label: e.FriendlyName, description: e.EnvironmentIdentifier?.IsDefault ? 'default' : e.Geo, detail: e.EnvironmentUrl, env: e })),
-        { title: 'New Solution — Step 1 of 4', placeHolder: 'Select target environment' }
-      );
-      if (!envPick) { return; }
+      // Determine target environment — pre-filled when called from an environment node
+      let envUrl: string;
+      let envFriendlyName: string;
 
-      // Step 2: display name
+      if (node?.payload?.environment) {
+        envUrl = node.payload.environment.EnvironmentUrl;
+        envFriendlyName = node.payload.environment.FriendlyName;
+      } else {
+        let envs: Awaited<ReturnType<typeof listEnvironments>>;
+        try {
+          envs = await listEnvironments();
+        } catch {
+          vscode.window.showErrorMessage('Could not load environments. Is pac authenticated?');
+          return;
+        }
+        const envPick = await vscode.window.showQuickPick(
+          envs.map(e => ({ label: e.FriendlyName, description: e.EnvironmentIdentifier?.IsDefault ? 'default' : e.Geo, detail: e.EnvironmentUrl, env: e })),
+          { title: 'New Solution — Step 1 of 4', placeHolder: 'Select target environment' }
+        );
+        if (!envPick) { return; }
+        envUrl = envPick.env.EnvironmentUrl;
+        envFriendlyName = envPick.env.FriendlyName;
+      }
+
+      const titlePrefix = `New Solution in ${envFriendlyName}`;
+
+      // Display name
       const displayName = await vscode.window.showInputBox({
-        title: 'New Solution — Step 2 of 4',
+        title: titlePrefix,
         prompt: 'Solution display name',
         placeHolder: 'e.g. PPP - My New Flow',
         validateInput: v => v?.trim() ? undefined : 'Required'
       });
       if (!displayName) { return; }
 
-      // Step 3: unique name (auto-generated, editable)
+      // Unique name (auto-generated, editable)
       const autoUnique = displayName.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
       const uniqueName = await vscode.window.showInputBox({
-        title: 'New Solution — Step 3 of 4',
+        title: titlePrefix,
         prompt: 'Solution unique name (no spaces or special characters)',
         value: autoUnique,
         validateInput: v => /^[a-zA-Z][a-zA-Z0-9_]*$/.test(v ?? '') ? undefined : 'Must start with a letter, letters/numbers/underscores only'
       });
       if (!uniqueName) { return; }
 
-      // Step 4: brand / publisher prefix — show brands from company context if available
-      let publisherPrefix: string | undefined;
-      if (companyCtx?.brands.length) {
-        type BrandItem = vscode.QuickPickItem & { prefix: string };
-        const brandItems: BrandItem[] = companyCtx.brands.map(b => ({
-          label: b.name,
-          description: b.prefix.toLowerCase(),
-          detail: b.description,
-          prefix: b.prefix.toLowerCase(),
-        }));
-        const customItem: BrandItem = { label: '$(edit) Custom prefix…', description: '', prefix: '' };
-        const picked = await vscode.window.showQuickPick([...brandItems, customItem], {
-          title: 'New Solution — Step 4 of 4',
-          placeHolder: 'Select the brand this solution belongs to',
-        });
-        if (!picked) { return; }
-        if (picked.prefix) {
-          publisherPrefix = picked.prefix;
-        } else {
-          publisherPrefix = await vscode.window.showInputBox({
-            title: 'New Solution — Step 4 of 4',
-            prompt: 'Publisher prefix',
-            value: 'dta',
-            validateInput: v => /^[a-z][a-z0-9]{1,7}$/.test(v ?? '') ? undefined : '2-8 lowercase letters/numbers, must start with a letter'
-          });
-        }
+      // Publisher — pick from known publishers or enter manually
+      type PubItem = vscode.QuickPickItem & { prefix: string; uniqueName: string; displayName: string };
+      const KNOWN_PUBLISHERS: PubItem[] = [
+        { label: 'Digital Transformation', description: 'dta', detail: 'Recommended — existing DTA publisher', prefix: 'dta', uniqueName: 'dta', displayName: 'Digital Transformation' },
+        { label: 'PrepayPower', description: 'ppp', detail: 'PrepayPower brand publisher', prefix: 'ppp', uniqueName: 'prepaypower', displayName: 'PrepayPower' },
+      ];
+      // Merge company context brands as additional options
+      const brandPubs: PubItem[] = (companyCtx?.brands ?? [])
+        .filter(b => !KNOWN_PUBLISHERS.some(kp => kp.prefix === b.prefix.toLowerCase()))
+        .map(b => ({ label: b.name, description: b.prefix.toLowerCase(), detail: b.description, prefix: b.prefix.toLowerCase(), uniqueName: b.prefix.toLowerCase(), displayName: b.name }));
+      const customPubItem: PubItem = { label: '$(edit) Custom publisher…', description: '', detail: 'Enter prefix and unique name manually', prefix: '', uniqueName: '', displayName: '' };
+      const pubPick = await vscode.window.showQuickPick([...KNOWN_PUBLISHERS, ...brandPubs, customPubItem], {
+        title: `${titlePrefix} — Publisher`,
+        placeHolder: 'Select the publisher for this solution',
+      });
+      if (!pubPick) { return; }
+
+      let publisherPrefix: string;
+      let publisherUniqueName: string;
+      let publisherDisplayName: string;
+
+      if (pubPick.prefix) {
+        publisherPrefix     = pubPick.prefix;
+        publisherUniqueName = pubPick.uniqueName;
+        publisherDisplayName = pubPick.displayName;
       } else {
-        publisherPrefix = await vscode.window.showInputBox({
-          title: 'New Solution — Step 4 of 4',
-          prompt: 'Publisher prefix',
+        const prefixInput = await vscode.window.showInputBox({
+          title: titlePrefix,
+          prompt: 'Publisher prefix (must match an existing publisher prefix in the environment)',
           value: 'dta',
           validateInput: v => /^[a-z][a-z0-9]{1,7}$/.test(v ?? '') ? undefined : '2-8 lowercase letters/numbers, must start with a letter'
         });
+        if (!prefixInput) { return; }
+        const uniqueInput = await vscode.window.showInputBox({
+          title: titlePrefix,
+          prompt: 'Publisher unique name (exact value from the environment — check Power Apps → Publishers)',
+          value: prefixInput,
+          validateInput: v => /^[a-z][a-z0-9]{1,99}$/.test(v ?? '') ? undefined : 'Lowercase letters and numbers only, must start with a letter'
+        });
+        if (!uniqueInput) { return; }
+        const displayInput = await vscode.window.showInputBox({
+          title: titlePrefix,
+          prompt: 'Publisher display name',
+          value: prefixInput,
+        });
+        if (!displayInput) { return; }
+        publisherPrefix      = prefixInput;
+        publisherUniqueName  = uniqueInput;
+        publisherDisplayName = displayInput;
       }
-      if (!publisherPrefix) { return; }
-
-      const publisherName = companyCtx?.brands.find(b => b.prefix.toLowerCase() === publisherPrefix)?.name
-        ?? publisherPrefix.toUpperCase();
-      const envUrl = envPick.env.EnvironmentUrl;
 
       await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Notification, title: `Creating solution "${displayName}"…`, cancellable: false },
@@ -850,9 +1416,10 @@ export async function activate(context: vscode.ExtensionContext) {
           progress.report({ message: 'See Output panel for progress' });
           try {
             info(`Creating solution: ${uniqueName} in ${envUrl}`);
-            await createSolution(envUrl, uniqueName, displayName, publisherPrefix, publisherName, solutionsRoot);
+            info(`Publisher: ${publisherDisplayName} (prefix=${publisherPrefix}, uniqueName=${publisherUniqueName})`);
+            await createSolution(envUrl, uniqueName, displayName, publisherPrefix, publisherDisplayName, publisherUniqueName, solutionsRoot!);
             info(`Solution created: ${uniqueName}`);
-            vscode.window.showInformationMessage(`✅ Solution "${displayName}" created in ${envPick.env.FriendlyName}`);
+            vscode.window.showInformationMessage(`✅ Solution "${displayName}" created in ${envFriendlyName}`);
             provider.refresh();
           } catch (e: any) {
             error(`Create solution failed: ${uniqueName}`, e.message);
@@ -860,6 +1427,133 @@ export async function activate(context: vscode.ExtensionContext) {
           }
         }
       );
+    }),
+
+    // ── Add template flow to an existing local solution ──────────────────────
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.addTemplateFlow', async (node: PowerAutomateNode) => {
+      const { solution, solutionLocalDir, envUrl } = node?.payload ?? {};
+      if (!solutionLocalDir || !solution) { return; }
+
+      const solutionXmlPath = path.join(solutionLocalDir, 'Other', 'Solution.xml');
+      if (!fs.existsSync(solutionXmlPath)) {
+        vscode.window.showWarningMessage('Could not find Solution.xml — make sure this solution has been exported locally first.');
+        return;
+      }
+
+      const { guid: flowGuid, fileName, displayName: flowName } = writeTemplateFlow(solutionLocalDir, solution.FriendlyName);
+      addWorkflowComponent(solutionLocalDir, flowGuid, flowName, fileName);
+      info(`Template flow added to ${solution.SolutionUniqueName} (${flowGuid})`);
+      provider.refresh();
+
+      const action = await vscode.window.showInformationMessage(
+        `✅ Template flow added locally to "${solution.FriendlyName}". Import the solution now to push it to the environment?`,
+        'Import Now', 'Later'
+      );
+
+      if (action === 'Import Now' && envUrl) {
+        await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: `Importing "${solution.FriendlyName}"…`, cancellable: false },
+          async (progress) => {
+            progress.report({ message: 'Packing… See Output panel for live progress' });
+            try {
+              await packAndImport(envUrl, solution.SolutionUniqueName, solutionLocalDir);
+              vscode.window.showInformationMessage(`✅ "${solution.FriendlyName}" imported. Map the DT Error Tracker connection in the PA portal, then turn the template flow on.`);
+            } catch (e: any) {
+              error(`Template flow import failed: ${solution.SolutionUniqueName}`, e.message);
+              vscode.window.showErrorMessage(`❌ Import failed: ${e.message}`);
+            }
+          }
+        );
+      }
+    }),
+
+    // ── Add solution to environment (inline + button on environment nodes) ──
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.addToEnvironment', async (node: PowerAutomateNode) => {
+      const { environment } = node?.payload ?? {};
+      if (!environment) { return; }
+
+      const envUrl = environment.EnvironmentUrl;
+      const envName = environment.FriendlyName;
+
+      type ActionItem = vscode.QuickPickItem & { id: string };
+      const action = await vscode.window.showQuickPick<ActionItem>([
+        { label: '$(add) New Solution', description: 'Scaffold a new solution locally and register it in this environment', id: 'new' },
+        { label: '$(cloud-upload) Import Local Solution', description: 'Pick an existing local solution folder and pack+import it to this environment', id: 'import' },
+      ], { title: `Add to ${envName}` });
+      if (!action) { return; }
+
+      if (action.id === 'new') {
+        await vscode.commands.executeCommand('dxt-power-automate-toolkit.newSolution', node);
+        return;
+      }
+
+      // ── Import local solution ────────────────────────────────────────────
+      if (!solutionsRoot || !fs.existsSync(solutionsRoot)) {
+        vscode.window.showWarningMessage('No local solutions folder found. Export at least one solution first, or create a new one.');
+        return;
+      }
+
+      const localDirs = fs.readdirSync(solutionsRoot, { withFileTypes: true })
+        .filter(d => d.isDirectory() && !d.name.startsWith('.'))
+        .map(d => d.name);
+
+      if (!localDirs.length) {
+        vscode.window.showInformationMessage('No local solution folders found in the solutions directory.');
+        return;
+      }
+
+      type SolItem = vscode.QuickPickItem & { dirName: string };
+      const items: SolItem[] = localDirs.map(dir => {
+        const wfDir = path.join(solutionsRoot!, dir, 'Workflows');
+        let flowCount = 0;
+        try { if (fs.existsSync(wfDir)) { flowCount = fs.readdirSync(wfDir).filter(f => f.endsWith('.json')).length; } }
+        catch { /* ignore */ }
+        return {
+          label: `$(folder) ${dir}`,
+          description: flowCount ? `${flowCount} flow${flowCount !== 1 ? 's' : ''}` : 'no flows yet',
+          dirName: dir,
+        };
+      });
+
+      const picks = await vscode.window.showQuickPick(items, {
+        title: `Import Local Solution to ${envName}`,
+        placeHolder: 'Select one or more solution folders to import',
+        canPickMany: true,
+      });
+      if (!picks?.length) { return; }
+
+      const confirm = await vscode.window.showWarningMessage(
+        `Import ${picks.length} solution${picks.length !== 1 ? 's' : ''} to "${envName}"? Existing solutions will be upgraded.`,
+        { modal: true },
+        'Import'
+      );
+      if (confirm !== 'Import') { return; }
+
+      let done = 0, failed = 0;
+      for (const pick of picks) {
+        const localDir = path.join(solutionsRoot!, pick.dirName);
+        await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: `Importing "${pick.dirName}" to ${envName}…`, cancellable: false },
+          async (progress) => {
+            progress.report({ message: 'Packing… See Output panel for live progress' });
+            try {
+              info(`Import local: packing and importing ${pick.dirName} to ${envUrl}`);
+              await packAndImport(envUrl, pick.dirName, localDir);
+              done++;
+              info(`Import local: completed ${pick.dirName}`);
+            } catch (e: any) {
+              failed++;
+              error(`Import local: failed for ${pick.dirName}`, e.message);
+              vscode.window.showErrorMessage(`❌ Import failed for "${pick.dirName}": ${e.message}`);
+            }
+          }
+        );
+      }
+
+      vscode.window.showInformationMessage(
+        `✅ Import complete — ${done} imported${failed ? `, ${failed} failed` : ''}`
+      );
+      provider.refresh();
     })
   );
 }
@@ -883,20 +1577,3 @@ function findFlowFileByGuid(solutionsRoot: string, flowGuid: string): string | n
   return null;
 }
 
-function countdown(
-  progress: vscode.Progress<{ message?: string }>,
-  seconds: number
-): Promise<void> {
-  return new Promise(resolve => {
-    let remaining = seconds;
-    const tick = () => {
-      const m = Math.floor(remaining / 60);
-      const s = String(remaining % 60).padStart(2, '0');
-      progress.report({ message: `⏳ Cooling down — ${m}:${s} before next solution` });
-      if (remaining <= 0) { resolve(); return; }
-      remaining--;
-      setTimeout(tick, 1000);
-    };
-    tick();
-  });
-}

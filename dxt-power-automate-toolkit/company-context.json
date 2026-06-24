@@ -1,0 +1,324 @@
+{
+  "group": "Yuno Energy Group",
+  "brands": [
+    {
+      "name": "PrepayPower",
+      "prefix": "PPP",
+      "website": "https://www.prepaypower.ie",
+      "description": "Ireland's leading pay-as-you-go energy supplier serving ~180,000 households. Offers prepaid electricity, gas, dual fuel, and broadband — no traditional bills. Customers top up via app, website, or Payzone outlets nationwide.",
+      "targetCustomers": [
+        "Irish households seeking budget control over energy spend",
+        "Renters and people who prefer pay-as-you-go over monthly bills",
+        "Property professionals: landlords, letting agents, Approved Housing Bodies, Local Authorities, PRS developments"
+      ],
+      "products": [
+        "Prepaid Electricity (Classic Pay & Smart Pay meters)",
+        "Prepaid Gas",
+        "Dual Fuel (Electricity + Gas bundle)",
+        "PrepayBroadband (unlimited, charges daily to electricity meter)",
+        "Property Professionals (landlord portal, bulk smart metering for rental properties)"
+      ],
+      "keyTerms": {
+        "PowerCode": "Unique top-up code used to add credit to an electricity meter",
+        "Classic Pay Meter": "Traditional prepaid electricity meter requiring manual PowerCode entry",
+        "Smart Pay Meter": "Smart prepaid electricity meter with app integration and hourly usage updates",
+        "Payzone": "Nationwide network of retail outlets where customers can top up with cash",
+        "PSO Levy": "Public Service Obligation levy — government charge on all Irish electricity accounts (currently €19.10/account) funding renewables and indigenous fuels",
+        "Prepayment Service Charge": "Daily charge (currently 45.04c/day) to maintain the PAYG infrastructure",
+        "Standing Charge": "Fixed daily charge regardless of usage; varies by meter type and urban/rural tariff",
+        "Unit Rate": "Price per kWh of electricity or gas consumed",
+        "NightSaver": "Electricity tariff with cheaper off-peak night rates for customers with a NightSaver meter",
+        "Emergency Credit": "Short-term credit auto-activated when balance hits zero to prevent power loss",
+        "Friendly Credit": "Out-of-hours credit ensuring customers are not cut off during evenings/weekends",
+        "GPRN": "Gas Point Reference Number — unique identifier for a gas connection, required for gas switching",
+        "Eircode": "Irish postcode used when setting up broadband service",
+        "Dual Fuel": "Combined electricity and gas supply under a single account",
+        "ESB Energisation": "Process of connecting a new property to the ESB electricity network, tracked from construction stage"
+      },
+      "keyProcesses": [
+        "Customer switching (electricity, gas, broadband) — PrepayPower manages changeover with previous supplier",
+        "Meter installation — Smart Pay or Classic Pay meter fitted at customer premises",
+        "Top-up — via PrepayPower app, website (/topping/top-now), or Payzone retail network",
+        "Moving home — customer registers new address, meter type determined at new property",
+        "Referral — existing customer refers friend, both receive bonus credit after successful meter installation",
+        "Property professional onboarding — landlord portal setup, bulk meter management, ESG reporting"
+      ]
+    },
+    {
+      "name": "Yuno Energy",
+      "prefix": "YE",
+      "website": "https://yunoenergy.ie",
+      "description": "Ireland's newest billpay electricity and gas provider. Digital-first, app-managed energy with competitive fixed and variable tariffs. No prepay — all plans are traditional billpay with a 12-month initial period. Paperless billing. Supports microgeneration (solar export tariff).",
+      "targetCustomers": [
+        "Irish households preferring monthly billing over pay-as-you-go",
+        "Tech-comfortable customers who want app-based energy management",
+        "Homeowners with solar panels / microgeneration",
+        "Price-conscious switchers looking for competitive fixed rates"
+      ],
+      "products": [
+        "Yuno Fixed — fixed-rate electricity plan, cheapest option for new customers",
+        "Yuno Variable Discount Plan — variable rate with discount applied",
+        "Yuno Smart Day/Night/Peak Plan — time-of-use tariff for smart meter customers (cheaper off-peak rates)",
+        "Yuno Smart Dual Fuel Plan — combined electricity + gas, paperless, requires Yuno app",
+        "Gas Supply — standard variable gas tariff"
+      ],
+      "keyTerms": {
+        "Yuno App": "Mobile app (required for some plans) for usage tracking, bill management, payments and top-ups",
+        "Fixed Plan": "Electricity plan with a locked unit rate for the contract term — protects against price rises",
+        "Variable Plan": "Electricity or gas plan where the unit rate can change with market conditions",
+        "Day/Night/Peak (Smart TOU)": "Time-of-use tariff splitting usage into day, night and peak rates — cheaper at off-peak times; requires a smart meter",
+        "Dual Fuel": "Combined electricity and gas supply under a single Yuno Energy account",
+        "Microgeneration / Clean Export Tariff": "Payment to customers who export unused solar-generated electricity back to the grid (currently 15.89c/kWh, rising to 17.16c/kWh from July 2026)",
+        "EAB (Estimated Annual Bill)": "Standardised estimate based on CRU typical annual consumption figures, used for plan comparison",
+        "Carbon Tax": "Government levy on gas consumption (currently €0.0125 incl. VAT per kWh); same rate across all Irish suppliers",
+        "Unit Rate": "Price per kWh of electricity or gas consumed",
+        "Standing Charge": "Fixed daily charge applied regardless of usage",
+        "PSO Levy": "Public Service Obligation levy applied to all Irish electricity accounts to fund renewables",
+        "Smart Meter": "Advanced electricity meter enabling time-of-use tariffs and real-time consumption data; required for Day/Night/Peak plan",
+        "Paperless Billing": "Bills delivered digitally via app/email — required for Smart Dual Fuel Plan",
+        "CRU": "Commission for Regulation of Utilities — Irish energy regulator; sets standard consumption figures used in EAB calculations"
+      },
+      "keyProcesses": [
+        "Customer switching — Yuno Energy handles changeover from previous electricity/gas supplier",
+        "Plan sign-up — online or via app; 12-month initial period with termination fee if exiting early",
+        "Smart meter onboarding — customer requests smart meter from ESB Networks, then upgrades to Day/Night/Peak plan",
+        "Microgeneration registration — customer registers solar/generation system to receive clean export tariff payments",
+        "Direct debit billing — monthly bill generated from meter reads; paid by direct debit",
+        "App-based account management — usage, bills, payments and plan changes via Yuno app"
+      ]
+    },
+    {
+      "name": "Yuno Energy Heat",
+      "prefix": "YEH",
+      "website": "https://www.yunoenergyheat.ie",
+      "description": "Renewable heating solutions including heat pumps and home heating services for Irish homes",
+      "targetCustomers": [
+        "Irish homeowners seeking renewable heating alternatives"
+      ],
+      "products": [
+        "Heat Pumps",
+        "Home Heating"
+      ],
+      "keyTerms": {},
+      "keyProcesses": []
+    },
+    {
+      "name": "Firmus",
+      "prefix": "FIR",
+      "website": "https://www.firmusenergy.co.uk",
+      "description": "Natural gas distribution and supply network in Northern Ireland",
+      "targetCustomers": [
+        "Households and businesses in Northern Ireland"
+      ],
+      "products": [
+        "Natural Gas Supply",
+        "Gas Network Connections"
+      ],
+      "keyTerms": {},
+      "keyProcesses": []
+    }
+  ],
+  "crossBrandTerms": {
+    "CRN": "Customer Reference Number — primary key for all customer records across all brands",
+    "MPRN": "Meter Point Reference Number — unique ID for an electricity meter connection point",
+    "GPRN": "Gas Point Reference Number — unique ID for a gas connection point",
+    "MM (Market Message)": "Automated messages exchanged with ESB Networks or GNI, e.g. MM110 (debt), MM011 (COT), G206N (gas), G201RQ (gas read request)",
+    "COT": "Change of Tenancy — process when a new tenant takes over a property, or Change of Tariff",
+    "POA": "Power of Attorney — customer account authority request",
+    "DPA": "Data Protection Act — compliance context for breach notifications and data handling",
+    "SAR": "Subject Access Request — customer data request under GDPR",
+    "VC": "Vulnerable Customer — customers on a protected list requiring special handling",
+    "L1E": "Low Income Electricity — customers processed via Liberty for vends/advance credit (MABs, NGOs)",
+    "NPS": "Net Promoter Score — customer satisfaction survey sent after interactions",
+    "IVR": "Interactive Voice Response — automated phone menu system built in 8x8",
+    "DND": "Do Not Disconnect — list of accounts exempted from disconnection during a period",
+    "RREL": "Meter read status code for a large estimated read — triggers proactive billing comms",
+    "SVOD": "State/Volume of Day — end-of-day CX reporting format",
+    "MABs": "Money Advice and Budgeting Service — NGO that requests vends/advance credit for low-income customers",
+    "RAF": "Refer a Friend — referral scheme across PPP and Yuno Energy",
+    "Pipeline": "Dev → Test → Prod deployment process for Power Automate solutions",
+    "EV Tariff": "Electric Vehicle energy tariff — time-of-use rate for EV owners"
+  },
+  "internalSystems": [
+    {
+      "name": "8x8",
+      "description": "Cloud contact centre platform for voice, email, SMS, chat, IVR and agent workspace. Used across PPP, Yuno, and Firmus tenants. Migrated from In2tel."
+    },
+    {
+      "name": "Cognigy",
+      "description": "Agent-assist chat bot platform. PPP Bot and Yuno Bot handle agent requests — HappyFox tickets, meter changes, vend requests, etc."
+    },
+    {
+      "name": "Max Power",
+      "description": "Main CRM/customer management system for PPP and Yuno accounts, meter status, call dispositions and dropdowns."
+    },
+    {
+      "name": "Liberty",
+      "description": "Account management system for L1E (low-income electricity) customers. Used for vend processing via RPA."
+    },
+    {
+      "name": "Genio",
+      "description": "Pricing and usage check system for PrepayPower."
+    },
+    {
+      "name": "HappyFox",
+      "description": "Helpdesk ticketing system. Agents create/update tickets via the bot or PA flows. Queues managed by Desktop Support."
+    },
+    {
+      "name": "SharePoint",
+      "description": "Primary data store for almost all DT processes — lists for meter changes, vulnerable customers, COT, POA, market messaging, retention, etc."
+    },
+    {
+      "name": "Power BI",
+      "description": "Reporting and dashboards — NPS, IVR calls, COP dashboard, retention, VC audit."
+    },
+    {
+      "name": "SQL Server (ppp-prod-sqlr01)",
+      "description": "Main reports/BI database. Key tables: PPPGas.dbo.PPPMarketMessages, Yuno Reporting, RAF URLs."
+    },
+    {
+      "name": "Knack",
+      "description": "Third-party platform used by Broadband Retention for tracking customer call statuses."
+    },
+    {
+      "name": "ESB Networks (ESBN)",
+      "description": "Irish electricity distribution network. Sends/receives market messages (MM110, MM011, etc.) that trigger PA flows."
+    },
+    {
+      "name": "GNI (Gas Networks Ireland)",
+      "description": "Irish gas distribution network. Sends market messages (G206N, G201RQ) processed by PA flows."
+    },
+    {
+      "name": "Enet",
+      "description": "Broadband infrastructure provider. Sends outage alerts and invoices; de-energised accounts with active BB are tracked against Enet charges."
+    },
+    {
+      "name": "Zapier",
+      "description": "Legacy automation platform — flows being migrated to Power Automate."
+    },
+    {
+      "name": "Shelf",
+      "description": "Knowledge base platform used by CX agents. DT team documents flows and processes there."
+    },
+    {
+      "name": "Creovai",
+      "description": "Agent Assist AI tool (in trial) for real-time call guidance."
+    }
+  ],
+  "team": {
+    "name": "Digital Transformation (DT) Team",
+    "manager": "Geoff Keenan",
+    "members": [
+      "Pedro Moreira",
+      "Barry Hennigan",
+      "Mark Bethel"
+    ],
+    "specialisation": "Full generalists — all three members build PA flows, configure 8x8, develop Copilot Studio bots, and handle BI/reporting. No domain specialisation.",
+    "taskTracking": "Asana — each flow/feature maps to an Asana task in the Digital Transformation Tasklist project",
+    "asanaWorkflow": {
+      "workspace": "Prepay Power Customer Experience",
+      "workspaceGid": "13428659628627",
+      "mainProject": "Digital Transformation Tasklist",
+      "mainProjectGid": "1204978926889787",
+      "sections": {
+        "Backlog": "Not yet started — all incoming requests land here",
+        "Current Sprint": "Queued and ready to pick up",
+        "Doing": "Actively being built — PA flows in Dev environment",
+        "Updates": "Minor changes / tweaks to already-live flows (not new builds)"
+      },
+      "userGids": {
+        "Pedro Moreira": "1205145366424683",
+        "Geoff Keenan": "1164395714486751",
+        "Barry Hennigan": "1205145366330216",
+        "Mark Bethel": "1210236084158899"
+      }
+    },
+    "environments": {
+      "Development - DTA": "Initial build and unit testing",
+      "Test - DTA": "UAT / staging — business sign-off before go-live",
+      "Production - DTA": "Live flows serving real customers",
+      "Prepay Power (default)": "Legacy PPP production environment — some older solutions live here"
+    },
+    "deploymentPipeline": "Power Platform Admin Centre (PPAC) built-in pipeline — Dev → Test → Prod. NOT using manual pac CLI export/import per environment.",
+    "documentationStandard": "Every solution gets a FLOWS.md auto-generated by the toolkit, shared to SharePoint for team visibility."
+  },
+  "botArchitecture": {
+    "internalAgentBots": {
+      "platform": "Microsoft Copilot Studio",
+      "channel": "Microsoft Teams",
+      "note": "IMPORTANT: All Asana tasks referencing 'the BOT' or 'bot' mean Microsoft Copilot Studio on Teams — NOT Cognigy, NOT a third-party chatbot platform.",
+      "connectionToPowerAutomate": "Native 'Run a flow' action inside Copilot Studio topics — tightly coupled in the same Power Platform environment. Bot solutions export includes both Copilot Studio topic definitions AND the PA flows called from topics.",
+      "botSolutions": [
+        "PPP CX Support Bot — agent-facing bot for PrepayPower CX team",
+        "Yuno CX Support Bot — agent-facing bot for Yuno Energy CX team",
+        "BOT Retention Ops — Retention team agent bot",
+        "Project Guide Bot — internal DT team bot"
+      ],
+      "commonTopics": [
+        "HappyFox ticket creation and update",
+        "Meter changes (ESB market message submission)",
+        "Vend requests (advance credit, L1E)",
+        "Sales lead submission (electricity, gas, broadband)",
+        "Escalation routing and complaints",
+        "Agent feedback and error reporting",
+        "NPS capture at end of topic",
+        "COT (Change of Tenancy) submission",
+        "POA and statement requests"
+      ]
+    },
+    "customerFacingWhatsApp": {
+      "platform": "Liveperson",
+      "brands": [
+        "PrepayPower",
+        "Yuno Energy"
+      ],
+      "outbound": "PA flows call the Liveperson REST API to send WhatsApp templates (retention comms, T&Cs acceptance, RAF links, appointment confirmations, meter read requests)",
+      "inbound": "When customers reply on WhatsApp, Liveperson sends webhooks to PA HTTP-triggered flows for processing the response",
+      "note": "Liveperson handles both PPP and Yuno Energy WhatsApp channels. All WhatsApp template sends go via Liveperson REST API — not directly via a WhatsApp Business API."
+    },
+    "customerFacingChat": {
+      "platform": "Liveperson",
+      "description": "Customer-facing live chat widget on PrepayPower and Yuno Energy websites. Separate from the Teams agent bots."
+    },
+    "cognigy": {
+      "note": "Cognigy is barely used — only briefly explored for a Yuno customer-facing bot. It is NOT the main bot platform. Do not assume Cognigy when tasks mention 'bot'."
+    }
+  },
+  "flowConventions": {
+    "solutionNaming": "Brand prefix + descriptive name. E.g. PPP_MarketMessaging, YE_CustomerSwitching, FIR_GasAlerts",
+    "flowNaming": "Verb + subject + trigger type. E.g. 'Process MM110 Debt Alert', 'Send NPS Survey on Case Close', 'Sync VC List Nightly'",
+    "prefixes": {
+      "PPP": "PrepayPower",
+      "YE": "Yuno Energy",
+      "YEH": "Yuno Energy Heat",
+      "FIR": "Firmus"
+    },
+    "triggerTypes": [
+      "Scheduled (recurrence) — nightly/hourly batch jobs",
+      "SharePoint list item created/modified — most CX workflows",
+      "HTTP request — triggered by Cognigy bot or external system",
+      "ESBN/GNI market message received — market messaging flows",
+      "Email received — inbox monitoring flows"
+    ],
+    "errorHandling": "All flows use a top-level try/catch scope. Failures post to a SharePoint error log list and send a Teams alert to the DT channel.",
+    "connectors": [
+      "SharePoint — primary data store for lists and files",
+      "SQL Server (ppp-prod-sqlr01) — reporting queries and BI data",
+      "HTTP — 8x8 REST API, HappyFox API, external webhooks",
+      "Outlook / Teams — internal notifications and approvals",
+      "Cognigy — bot-triggered flows via HTTP"
+    ]
+  },
+  "developmentWorkflow": {
+    "process": [
+      "1. Asana task created — describes the requirement, linked to a brand and system",
+      "2. Flow designed and built in Dev environment",
+      "3. FLOWS.md generated and shared to SharePoint",
+      "4. Tested with real or mock data in Test environment",
+      "5. Business sign-off from relevant team lead",
+      "6. Solution exported, imported to Prod",
+      "7. Asana task marked complete with solution name in comments"
+    ],
+    "bestPractices": []
+  }
+}

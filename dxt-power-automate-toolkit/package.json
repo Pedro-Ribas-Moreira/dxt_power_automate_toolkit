@@ -2,7 +2,7 @@
   "name": "dxt-power-automate-toolkit",
   "displayName": "DXT Power Automate Toolkit",
   "description": "Local development toolkit for Power Automate solutions",
-  "version": "0.0.1",
+  "version": "0.2.0",
   "publisher": "prepaypower-dta",
   "engines": {
     "vscode": "^1.120.0"
@@ -129,8 +129,56 @@
       },
       {
         "command": "dxt-power-automate-toolkit.setupContext",
-        "title": "Setup Company Context",
+        "title": "Edit Company Knowledge",
         "icon": "$(organization)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.buildCloudIndex",
+        "title": "Build & Share Cloud Index",
+        "icon": "$(cloud-upload)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.pullSharedIndex",
+        "title": "Pull Latest Index from SharePoint",
+        "icon": "$(cloud-download)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.discoverSharePoint",
+        "title": "Discover SharePoint Sites & Lists",
+        "icon": "$(list-tree)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.viewFlowRuns",
+        "title": "View Recent Runs",
+        "icon": "$(history)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.checkDependencies",
+        "title": "Check Import Dependencies",
+        "icon": "$(debug-disconnect)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.manageEnvVars",
+        "title": "Manage Environment Variables",
+        "icon": "$(settings-gear)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.addToEnvironment",
+        "title": "Add Solution to Environment",
+        "icon": "$(add)",
+        "category": "Power Automate"
+      },
+      {
+        "command": "dxt-power-automate-toolkit.addTemplateFlow",
+        "title": "Add Template Flow",
+        "icon": "$(file-add)",
         "category": "Power Automate"
       }
     ],
@@ -162,6 +210,21 @@
           "group": "navigation@3"
         },
         {
+          "command": "dxt-power-automate-toolkit.buildCloudIndex",
+          "when": "view == dxt-power-automate.treeView",
+          "group": "navigation@4"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.pullSharedIndex",
+          "when": "view == dxt-power-automate.treeView",
+          "group": "navigation@5"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.discoverSharePoint",
+          "when": "view == dxt-power-automate.treeView",
+          "group": "navigation@6"
+        },
+        {
           "command": "dxt-power-automate-toolkit.filterLibrary",
           "when": "view == dxt-power-automate.libraryView",
           "group": "navigation@1"
@@ -178,6 +241,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "dxt-power-automate-toolkit.addToEnvironment",
+          "when": "view == dxt-power-automate.treeView && viewItem == environment",
+          "group": "inline"
+        },
         {
           "command": "dxt-power-automate-toolkit.exportSolution",
           "when": "view == dxt-power-automate.treeView && viewItem == solution",
@@ -199,9 +267,29 @@
           "group": "inline@3"
         },
         {
-          "command": "dxt-power-automate-toolkit.viewFlow",
+          "command": "dxt-power-automate-toolkit.viewFlowRuns",
           "when": "view == dxt-power-automate.treeView && viewItem == flow",
           "group": "inline@1"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.addTemplateFlow",
+          "when": "view == dxt-power-automate.treeView && viewItem == solution-local",
+          "group": "1_flow@1"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.checkDependencies",
+          "when": "view == dxt-power-automate.treeView && viewItem == solution-local",
+          "group": "2_dataverse@1"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.manageEnvVars",
+          "when": "view == dxt-power-automate.treeView && viewItem == solution-local",
+          "group": "2_dataverse@2"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.viewFlow",
+          "when": "view == dxt-power-automate.treeView && viewItem == flow",
+          "group": "inline@2"
         },
         {
           "command": "dxt-power-automate-toolkit.importMockData",
@@ -237,6 +325,11 @@
           "command": "dxt-power-automate-toolkit.copySnippet",
           "when": "view == dxt-power-automate.libraryView && viewItem == example",
           "group": "inline"
+        },
+        {
+          "command": "dxt-power-automate-toolkit.copySnippet",
+          "when": "view == dxt-power-automate.libraryView && viewItem == botpattern",
+          "group": "inline"
         }
       ]
     }
@@ -266,6 +359,7 @@
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
+    "@azure/msal-node": "^5.2.5",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.4.3"
   }

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { Library, LibraryConnector, LibraryOperation, LibraryExample } from './libraryBuilder';
+import { Library, LibraryConnector, LibraryOperation, LibraryExample, BotPattern, BotPatternKind } from './libraryBuilder';
 
-export type LibNodeKind = 'connector' | 'operation' | 'example' | 'info';
+export type LibNodeKind = 'connector' | 'operation' | 'example' | 'botpattern-category' | 'botpattern' | 'info';
 
 export interface LibNodePayload {
   connectorKey?: string;
@@ -9,6 +9,8 @@ export interface LibNodePayload {
   example?: LibraryExample;
   connector?: LibraryConnector;
   operation?: LibraryOperation;
+  botPattern?: BotPattern;
+  botPatternKind?: BotPatternKind;
 }
 
 export class LibraryNode extends vscode.TreeItem {
@@ -48,6 +50,7 @@ export class LibraryProvider implements vscode.TreeDataProvider<LibraryNode> {
     if (!el) { return this.rootNodes(); }
     if (el.kind === 'connector') { return this.operationNodes(el); }
     if (el.kind === 'operation') { return this.exampleNodes(el); }
+    if (el.kind === 'botpattern-category') { return this.botPatternNodes(el); }
     return [];
   }
 
@@ -55,16 +58,25 @@ export class LibraryProvider implements vscode.TreeDataProvider<LibraryNode> {
     if (!this.library) {
       return [info('No library built yet — click ↺ to scan your solutions')];
     }
-    const { connectors, flowsScanned, solutionsScanned, lastUpdated } = this.library;
-    if (!Object.keys(connectors).length) {
+    const { connectors, flowsScanned, solutionsScanned, topicsScanned, botPatterns, lastUpdated } = this.library;
+    const hasConnectors = Object.keys(connectors).length > 0;
+    const hasBotPatterns = botPatterns && botPatterns.length > 0;
+
+    if (!hasConnectors && !hasBotPatterns) {
       return [info('No actions found — export some solutions first')];
     }
 
     const date = new Date(lastUpdated).toLocaleString();
     const q = this.filter;
 
-    // Filter: keep connectors that match by name, or have at least one matching operation
-    const entries = Object.entries(connectors)
+    const topicsLabel = topicsScanned ? ` · ${topicsScanned} topics` : '';
+    const headerLabel = q
+      ? `🔍 "${q}"`
+      : `${flowsScanned} flows · ${solutionsScanned} solutions${topicsLabel} · ${date}`;
+    const header = info(headerLabel);
+
+    // ── Connector nodes ──────────────────────────────────────────────────────
+    const connEntries = Object.entries(connectors)
       .filter(([, conn]) => {
         if (!q) { return true; }
         if (conn.displayName.toLowerCase().includes(q)) { return true; }
@@ -72,16 +84,7 @@ export class LibraryProvider implements vscode.TreeDataProvider<LibraryNode> {
       })
       .sort(([, a], [, b]) => b.count - a.count);
 
-    if (!entries.length) {
-      return [info(`No results for "${this.filter}"`)];
-    }
-
-    const headerLabel = q
-      ? `🔍 "${q}" — ${entries.length} connector${entries.length !== 1 ? 's' : ''}`
-      : `${flowsScanned} flows · ${solutionsScanned} solutions · ${date}`;
-    const header = info(headerLabel);
-
-    const nodes = entries.map(([key, conn]) => {
+    const connNodes = connEntries.map(([key, conn]) => {
       const node = new LibraryNode(
         conn.displayName,
         'connector',
@@ -93,7 +96,44 @@ export class LibraryProvider implements vscode.TreeDataProvider<LibraryNode> {
       return node;
     });
 
-    return [header, ...nodes];
+    // ── Bot pattern category nodes ───────────────────────────────────────────
+    const botNodes: LibraryNode[] = [];
+    if (hasBotPatterns) {
+      const categories: { kind: BotPatternKind; label: string; icon: string }[] = [
+        { kind: 'AdaptiveCard', label: 'Adaptive Cards', icon: 'layout' },
+        { kind: 'FlowCall',     label: 'Flow Calls',     icon: 'zap' },
+        { kind: 'Question',     label: 'Questions',      icon: 'question' },
+        { kind: 'Message',      label: 'Messages',       icon: 'comment' },
+      ];
+      for (const cat of categories) {
+        const matching = botPatterns.filter(p =>
+          p.kind === cat.kind &&
+          (!q || p.displayName.toLowerCase().includes(q) || p.topic.toLowerCase().includes(q) || p.solution.toLowerCase().includes(q))
+        );
+        if (!matching.length) { continue; }
+        const catNode = new LibraryNode(
+          cat.label,
+          'botpattern-category',
+          vscode.TreeItemCollapsibleState.Collapsed,
+          { botPatternKind: cat.kind }
+        );
+        catNode.description = `${matching.length} pattern${matching.length !== 1 ? 's' : ''}`;
+        catNode.iconPath = new vscode.ThemeIcon(cat.icon);
+        botNodes.push(catNode);
+      }
+    }
+
+    if (!connNodes.length && !botNodes.length) {
+      return [info(`No results for "${this.filter}"`)];
+    }
+
+    const sections: LibraryNode[] = [header];
+    if (connNodes.length) { sections.push(...connNodes); }
+    if (botNodes.length) {
+      const botHeader = info(`🤖 Bot Patterns`);
+      sections.push(botHeader, ...botNodes);
+    }
+    return sections;
   }
 
   private operationNodes(connNode: LibraryNode): LibraryNode[] {
@@ -135,6 +175,30 @@ export class LibraryProvider implements vscode.TreeDataProvider<LibraryNode> {
       node.tooltip = `Click copy to use this snippet in your flow`;
       return node;
     });
+  }
+
+  private botPatternNodes(catNode: LibraryNode): LibraryNode[] {
+    const lib = this.library;
+    if (!lib?.botPatterns) { return []; }
+    const kind = catNode.payload?.botPatternKind;
+    const q = this.filter;
+
+    return lib.botPatterns
+      .filter(p => p.kind === kind &&
+        (!q || p.displayName.toLowerCase().includes(q) || p.topic.toLowerCase().includes(q) || p.solution.toLowerCase().includes(q))
+      )
+      .map(p => {
+        const node = new LibraryNode(
+          p.displayName,
+          'botpattern',
+          vscode.TreeItemCollapsibleState.None,
+          { botPattern: p }
+        );
+        node.description = `${p.solution} / ${p.topic}`;
+        node.iconPath = new vscode.ThemeIcon('symbol-snippet');
+        node.tooltip = `Click copy to paste this pattern`;
+        return node;
+      });
   }
 }
 

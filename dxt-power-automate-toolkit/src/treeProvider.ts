@@ -3,15 +3,18 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { PacEnvironment, PacSolution, listEnvironments, listSolutions, listLocalFlows } from './pacCli';
 
-export type NodeKind = 'environment' | 'solution' | 'solution-local' | 'flow' | 'message';
+export type NodeKind = 'environment' | 'solution' | 'solution-local' | 'flow' | 'topic' | 'message';
 
 export interface NodePayload {
   environment?: PacEnvironment;
   solution?: PacSolution;
   envUrl?: string;
   envId?: string;          // EnvironmentIdentifier.Id — used in maker portal URLs
+  envIsDefault?: boolean;  // true → URL needs "Default-" prefix
+  solutionId?: string;     // solution GUID — needed for /solutions/{id}/flows/{id} URL format
   solutionLocalDir?: string;
   flowPath?: string;
+  topicPath?: string;
 }
 
 export class PowerAutomateNode extends vscode.TreeItem {
@@ -36,6 +39,8 @@ export class PowerAutomateNode extends vscode.TreeItem {
         return new vscode.ThemeIcon('folder', new vscode.ThemeColor('charts.green'));
       case 'flow':
         return new vscode.ThemeIcon('play-circle', new vscode.ThemeColor('charts.purple'));
+      case 'topic':
+        return new vscode.ThemeIcon('comment-discussion', new vscode.ThemeColor('charts.yellow'));
       default:
         return new vscode.ThemeIcon('info');
     }
@@ -101,23 +106,32 @@ export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerA
         const kind: NodeKind = isLocal ? 'solution-local' : 'solution';
 
         let flowCount = 0;
+        let topicCount = 0;
         if (isLocal && localDir) {
           const wfDir = path.join(localDir, 'Workflows');
+          const botDir = path.join(localDir, 'botcomponents');
           try {
             if (fs.existsSync(wfDir)) {
               flowCount = fs.readdirSync(wfDir).filter(f => f.endsWith('.json')).length;
             }
+            if (fs.existsSync(botDir)) {
+              topicCount = fs.readdirSync(botDir).filter(d => d.includes('.topic.')).length;
+            }
           } catch { /* ignore */ }
         }
+
+        const counts: string[] = [];
+        if (flowCount)  { counts.push(`${flowCount} flow${flowCount !== 1 ? 's' : ''}`); }
+        if (topicCount) { counts.push(`${topicCount} topic${topicCount !== 1 ? 's' : ''}`); }
 
         const node = new PowerAutomateNode(
           sol.FriendlyName,
           kind,
           isLocal ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
-          { solution: sol, envUrl: env.EnvironmentUrl, envId: env.EnvironmentIdentifier?.Id, solutionLocalDir: localDir ?? '' }
+          { solution: sol, envUrl: env.EnvironmentUrl, envId: env.EnvironmentIdentifier?.Id, envIsDefault: env.EnvironmentIdentifier?.IsDefault ?? false, solutionId: sol.Id ?? sol.SolutionId, solutionLocalDir: localDir ?? '' }
         );
         node.description = isLocal
-          ? `v${sol.VersionNumber} ✓${hasChanges ? ' ●' : ''}${flowCount ? `  ${flowCount} flows` : ''}`
+          ? `v${sol.VersionNumber} ✓${hasChanges ? ' ●' : ''}${counts.length ? `  ${counts.join(', ')}` : ''}`
           : `v${sol.VersionNumber}`;
         node.tooltip = hasChanges
           ? `${sol.SolutionUniqueName}\n⚠ Local changes not yet imported`
@@ -132,13 +146,16 @@ export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerA
   private fetchLocalFlows(solNode: PowerAutomateNode): PowerAutomateNode[] {
     const dir = solNode.payload?.solutionLocalDir;
     if (!dir) { return []; }
+    const envId      = solNode.payload?.envId;
+    const envIsDefault = solNode.payload?.envIsDefault;
+    const envUrl     = solNode.payload?.envUrl;
+    const solutionId = solNode.payload?.solutionId;
+    const nodes: PowerAutomateNode[] = [];
+
+    // ── Cloud Flows ──────────────────────────────────────────────────────────
     const flows = listLocalFlows(dir);
-    if (!flows.length) { return [infoNode('No flows in Workflows/ folder')]; }
-    const envId = solNode.payload?.envId;
-    const envUrl = solNode.payload?.envUrl;
-    return flows.map(rawName => {
+    for (const rawName of flows) {
       const flowPath = path.join(dir, 'Workflows', `${rawName}.json`);
-      // Try to read the human-readable display name from the flow JSON
       let displayName = rawName.replace(/-[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/i, '');
       try {
         const json = JSON.parse(fs.readFileSync(flowPath, 'utf8'));
@@ -146,10 +163,43 @@ export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerA
         if (typeof name === 'string' && name.trim()) { displayName = name.trim(); }
       } catch { /* fall back to filename */ }
       const node = new PowerAutomateNode(displayName, 'flow', vscode.TreeItemCollapsibleState.None,
-        { flowPath, solutionLocalDir: solNode.payload?.solutionLocalDir, envId, envUrl });
+        { flowPath, solutionLocalDir: dir, envId, envIsDefault, envUrl, solutionId });
       node.tooltip = rawName;
-      return node;
-    });
+      nodes.push(node);
+    }
+
+    // ── Bot Topics ───────────────────────────────────────────────────────────
+    const botDir = path.join(dir, 'botcomponents');
+    if (fs.existsSync(botDir)) {
+      const topicDirs = fs.readdirSync(botDir).filter(d => d.includes('.topic.'));
+      for (const topicDir of topicDirs) {
+        const topicPath = path.join(botDir, topicDir, 'data');
+        if (!fs.existsSync(topicPath)) { continue; }
+
+        // Extract topic name from folder: prefix.topic.TopicName → TopicName
+        let displayName = topicDir.split('.topic.').pop() ?? topicDir;
+        // Try to read displayName from YAML intent
+        try {
+          const yaml = fs.readFileSync(topicPath, 'utf8');
+          const match = yaml.match(/displayName:\s*(.+)/);
+          if (match) { displayName = match[1].trim(); }
+        } catch { /* use folder name */ }
+
+        const node = new PowerAutomateNode(displayName, 'topic', vscode.TreeItemCollapsibleState.None,
+          { topicPath, solutionLocalDir: dir });
+        node.tooltip = topicDir;
+        node.description = 'topic';
+        node.command = {
+          command: 'vscode.open',
+          title: 'Open Topic',
+          arguments: [vscode.Uri.file(topicPath)],
+        };
+        nodes.push(node);
+      }
+    }
+
+    if (!nodes.length) { return [infoNode('No flows or topics found')]; }
+    return nodes;
   }
 
   getSolutionsRoot(): string | undefined { return this.solutionsRoot; }

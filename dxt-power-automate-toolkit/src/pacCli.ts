@@ -1,9 +1,191 @@
 import { exec, execFile, spawn } from 'child_process';
 import { promisify } from 'util';
+import { randomUUID } from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import * as log from './log';
+
+// Detect the environment-specific GUID suffix from existing exported flow filenames.
+// Every environment stamps its flows with a fixed 3-segment suffix, e.g. f011-bec1-7c1e52fba4ce.
+// A fully random GUID will be rejected on import.
+function detectGuidSuffix(solutionsRoot: string): string | null {
+  try {
+    for (const sol of fs.readdirSync(solutionsRoot)) {
+      const wfDir = path.join(solutionsRoot, sol, 'Workflows');
+      if (!fs.existsSync(wfDir)) { continue; }
+      for (const f of fs.readdirSync(wfDir)) {
+        const m = f.match(/([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})\.json$/i);
+        if (m) { return `${m[3]}-${m[4]}-${m[5]}`; }
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function generateEnvironmentGuid(solutionsRoot: string): string {
+  const suffix = detectGuidSuffix(solutionsRoot);
+  if (!suffix) { return randomUUID().toUpperCase(); }
+  const [seg1, seg2] = randomUUID().split('-');
+  return `${seg1}-${seg2}-${suffix}`.toUpperCase();
+}
+
+function buildTemplateFlow(flowDisplayName: string, solutionDisplayName: string): object {
+  return {
+    properties: {
+      connectionReferences: {},
+      definition: {
+        $schema: 'https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#',
+        contentVersion: '1.0.0.0',
+        metadata: { defaultToEmbeddedConnections: true },
+        parameters: {
+          $authentication: { defaultValue: {}, type: 'SecureObject' },
+          $connections: { defaultValue: {}, type: 'Object' },
+        },
+        triggers: {
+          manual: {
+            metadata: { operationMetadataId: randomUUID() },
+            type: 'Request',
+            kind: 'Button',
+            inputs: { schema: {} },
+          },
+        },
+        actions: {
+          Try: {
+            metadata: { operationMetadataId: randomUUID() },
+            type: 'Scope',
+            actions: {
+              Solution_Name: {
+                metadata: { operationMetadataId: randomUUID() },
+                type: 'Compose',
+                inputs: solutionDisplayName,
+                runAfter: {},
+              },
+            },
+            runAfter: {},
+          },
+          Catch: {
+            metadata: { operationMetadataId: randomUUID() },
+            type: 'Scope',
+            actions: {
+              Get_Error_Details: {
+                metadata: { operationMetadataId: randomUUID() },
+                type: 'Query',
+                inputs: {
+                  from: "@result('Try')",
+                  where: "@equals(item()?['status'], 'Failed')",
+                },
+                runAfter: {},
+              },
+              Error_Details: {
+                metadata: { operationMetadataId: randomUUID() },
+                type: 'Compose',
+                inputs: "@first(body('Get_Error_Details'))?['error']?['message']",
+                runAfter: { Get_Error_Details: ['Succeeded'] },
+              },
+            },
+            runAfter: { Try: ['Failed', 'TimedOut', 'Skipped'] },
+          },
+        },
+      },
+      displayName: flowDisplayName,
+      templateName: null,
+    },
+    schemaVersion: '1.0.0.0',
+  };
+}
+
+// Write a template flow into an existing unpacked solution directory.
+// Returns { guid, filePath, fileName, displayName }.
+export function writeTemplateFlow(solutionDir: string, solutionDisplayName: string): { guid: string; filePath: string; fileName: string; displayName: string } {
+  const workflowsDir = path.join(solutionDir, 'Workflows');
+  fs.mkdirSync(workflowsDir, { recursive: true });
+
+  const solutionsRoot = path.dirname(solutionDir);
+  const flowGuid = generateEnvironmentGuid(solutionsRoot);
+  const displayName = `Template - ${solutionDisplayName}`;
+  const safeName = displayName.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  const fileName = `${safeName}-${flowGuid}.json`;
+  const filePath = path.join(workflowsDir, fileName);
+
+  fs.writeFileSync(
+    filePath,
+    JSON.stringify(buildTemplateFlow(displayName, solutionDisplayName), null, 2),
+    'utf8'
+  );
+  log.info(`Template flow written: ${filePath}`);
+  return { guid: flowGuid, filePath, fileName, displayName };
+}
+
+// Inject a workflow JSON file directly into an existing zip (pac pack excludes new flows).
+async function injectWorkflowIntoZip(zipPath: string, workflowFilePath: string): Promise<void> {
+  const entryName = `Workflows/${path.basename(workflowFilePath)}`;
+  log.info(`Injecting ${entryName} into zip…`);
+  const ps = [
+    'Add-Type -AssemblyName System.IO.Compression;',
+    'Add-Type -AssemblyName System.IO.Compression.FileSystem;',
+    `$z = [System.IO.Compression.ZipFile]::Open('${zipPath}', [System.IO.Compression.ZipArchiveMode]::Update);`,
+    `$e = $z.CreateEntry('${entryName}');`,
+    '$s = $e.Open();',
+    `$b = [System.IO.File]::ReadAllBytes('${workflowFilePath}');`,
+    '$s.Write($b, 0, $b.Length);',
+    '$s.Close();',
+    '$z.Dispose();',
+  ].join(' ');
+  const { stdout, stderr } = await execAsync(`powershell.exe -NoProfile -NonInteractive -Command "${ps}"`);
+  if (stderr) { log.info(`  zip inject stderr: ${stderr.trim()}`); }
+  if (stdout) { log.info(`  zip inject stdout: ${stdout.trim()}`); }
+}
+
+// Register a new workflow in both Solution.xml (RootComponent) and customizations.xml (<Workflow> entry).
+// Both are required: Solution.xml links the entity to the solution; customizations.xml creates it.
+export function addWorkflowComponent(solutionDir: string, flowGuid: string, displayName: string, fileName: string): void {
+  const guid = flowGuid.toLowerCase();
+
+  // ── Solution.xml: add RootComponent ──────────────────────────────────────────
+  const solutionXmlPath = path.join(solutionDir, 'Other', 'Solution.xml');
+  const solXml = fs.readFileSync(solutionXmlPath, 'utf8');
+  const rcEntry = `<RootComponent type="29" id="{${guid}}" behavior="0" />`;
+  const updatedSol = /<RootComponents\s*\/>/.test(solXml)
+    ? solXml.replace(/<RootComponents\s*\/>/, `<RootComponents>\n      ${rcEntry}\n    </RootComponents>`)
+    : solXml.replace(/(<RootComponents>)([\s\S]*?)(<\/RootComponents>)/, `$1$2  ${rcEntry}\n    $3`);
+  fs.writeFileSync(solutionXmlPath, updatedSol, 'utf8');
+
+  // ── customizations.xml: add <Workflow> entry ──────────────────────────────────
+  const custXmlPath = path.join(solutionDir, 'Other', 'customizations.xml');
+  const custXml = fs.readFileSync(custXmlPath, 'utf8');
+  const wfEntry = `<Workflow WorkflowId="{${guid}}" Name="${xmlEsc(displayName)}">
+      <JsonFileName>/Workflows/${fileName}</JsonFileName>
+      <Type>1</Type>
+      <Subprocess>0</Subprocess>
+      <Category>5</Category>
+      <Mode>0</Mode>
+      <Scope>4</Scope>
+      <OnDemand>1</OnDemand>
+      <TriggerOnCreate>0</TriggerOnCreate>
+      <TriggerOnDelete>0</TriggerOnDelete>
+      <AsyncAutomatically>0</AsyncAutomatically>
+      <SyncWorkflowLogOnFailure>0</SyncWorkflowLogOnFailure>
+      <StateCode>1</StateCode>
+      <StatusCode>2</StatusCode>
+      <RunAs>1</RunAs>
+      <IsTransacted>1</IsTransacted>
+      <IntroducedVersion>1.0.0.0</IntroducedVersion>
+      <IsCustomizable>1</IsCustomizable>
+      <BusinessProcessType>0</BusinessProcessType>
+      <IsCustomProcessingStepAllowedForOtherPublishers>1</IsCustomProcessingStepAllowedForOtherPublishers>
+      <PrimaryEntity>none</PrimaryEntity>
+      <LocalizedNames>
+        <LocalizedName languagecode="1033" description="${xmlEsc(displayName)}" />
+      </LocalizedNames>
+    </Workflow>`;
+  const updatedCust = /<Workflows\s*\/>/.test(custXml)
+    ? custXml.replace(/<Workflows\s*\/>/, `<Workflows>\n    ${wfEntry}\n  </Workflows>`)
+    : custXml.replace(/(<Workflows>)([\s\S]*?)(<\/Workflows>)/, `$1$2  ${wfEntry}\n  $3`);
+  fs.writeFileSync(custXmlPath, updatedCust, 'utf8');
+
+  log.info(`Workflow registered: ${guid} — Solution.xml + customizations.xml updated`);
+}
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -21,7 +203,8 @@ export interface PacEnvironment {
 }
 
 export interface PacSolution {
-  SolutionId?: string;       // GUID — present in some pac versions, used for URL matching
+  Id?: string;               // GUID from pac solution list --json
+  SolutionId?: string;       // alternate field name in older pac versions
   SolutionUniqueName: string;
   FriendlyName: string;
   VersionNumber: string;
@@ -199,14 +382,17 @@ export async function createSolution(
   uniqueName: string,
   displayName: string,
   publisherPrefix: string,
-  publisherName: string,
+  publisherDisplayName: string,
+  publisherUniqueName: string,
   solutionsRoot: string
 ): Promise<void> {
   const solutionDir = path.join(solutionsRoot, uniqueName);
   const otherDir = path.join(solutionDir, 'Other');
   fs.mkdirSync(otherDir, { recursive: true });
 
-  fs.writeFileSync(path.join(otherDir, 'Solution.xml'), solutionXml(uniqueName, displayName, publisherPrefix, publisherName), 'utf8');
+  const xml = solutionXml(uniqueName, displayName, publisherPrefix, publisherDisplayName, publisherUniqueName);
+  log.info(`Solution.xml:\n${xml}`);
+  fs.writeFileSync(path.join(otherDir, 'Solution.xml'), xml, 'utf8');
   fs.writeFileSync(path.join(otherDir, 'customizations.xml'), CUSTOMIZATIONS_XML, 'utf8');
 
   const zipPath = path.join(solutionsRoot, `${uniqueName}_new.zip`);
@@ -214,53 +400,115 @@ export async function createSolution(
   await runPacLong(['solution', 'import', '--environment', envUrl, '--path', zipPath]);
 }
 
-function solutionXml(uniqueName: string, displayName: string, publisherPrefix: string, publisherName: string): string {
+function xmlEsc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+function solutionXml(uniqueName: string, displayName: string, publisherPrefix: string, publisherDisplayName: string, publisherUniqueName: string, flowGuid?: string): string {
+  const nilAttr = 'xsi:nil="true"';
   return `<?xml version="1.0" encoding="utf-8"?>
-<ImportExportXml version="9.2.24021.183" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<ImportExportXml version="9.2.26054.00147" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" OrganizationVersion="9.2.26054.00147" OrganizationSchemaType="Standard">
   <SolutionManifest>
-    <UniqueName>${uniqueName}</UniqueName>
+    <UniqueName>${xmlEsc(uniqueName)}</UniqueName>
     <LocalizedNames>
-      <LocalizedName description="${displayName}" languagecode="1033"/>
+      <LocalizedName description="${xmlEsc(displayName)}" languagecode="1033" />
     </LocalizedNames>
-    <Descriptions/>
+    <Descriptions />
     <Version>1.0.0.0</Version>
     <Managed>0</Managed>
     <Publisher>
-      <UniqueName>${publisherPrefix}</UniqueName>
+      <UniqueName>${xmlEsc(publisherUniqueName)}</UniqueName>
       <LocalizedNames>
-        <LocalizedName description="${publisherName}" languagecode="1033"/>
+        <LocalizedName description="${xmlEsc(publisherDisplayName)}" languagecode="1033" />
       </LocalizedNames>
-      <Descriptions/>
-      <EMailAddress/>
-      <SupportingWebsiteUrl/>
-      <CustomizationPrefix>${publisherPrefix}</CustomizationPrefix>
-      <CustomizationOptionValuePrefix>10000</CustomizationOptionValuePrefix>
+      <Descriptions>
+        <Description description="${xmlEsc(publisherDisplayName)}" languagecode="1033" />
+      </Descriptions>
+      <EMailAddress ${nilAttr}></EMailAddress>
+      <SupportingWebsiteUrl ${nilAttr}></SupportingWebsiteUrl>
+      <CustomizationPrefix>${xmlEsc(publisherPrefix)}</CustomizationPrefix>
+      <CustomizationOptionValuePrefix>78017</CustomizationOptionValuePrefix>
       <Addresses>
         <Address>
           <AddressNumber>1</AddressNumber>
           <AddressTypeCode>1</AddressTypeCode>
-          <City/><County/><Country/><Fax/>
-          <FreightTermsCode/>
-          <ImportSequenceNumber>0</ImportSequenceNumber>
-          <Latitude>0</Latitude><Longitude>0</Longitude>
-          <Name/><PostalCode/><PrimaryContactName/>
+          <City ${nilAttr}></City>
+          <County ${nilAttr}></County>
+          <Country ${nilAttr}></Country>
+          <Fax ${nilAttr}></Fax>
+          <FreightTermsCode ${nilAttr}></FreightTermsCode>
+          <ImportSequenceNumber ${nilAttr}></ImportSequenceNumber>
+          <Latitude ${nilAttr}></Latitude>
+          <Line1 ${nilAttr}></Line1>
+          <Line2 ${nilAttr}></Line2>
+          <Line3 ${nilAttr}></Line3>
+          <Longitude ${nilAttr}></Longitude>
+          <Name ${nilAttr}></Name>
+          <PostalCode ${nilAttr}></PostalCode>
+          <PostOfficeBox ${nilAttr}></PostOfficeBox>
+          <PrimaryContactName ${nilAttr}></PrimaryContactName>
           <ShippingMethodCode>1</ShippingMethodCode>
-          <StateOrProvince/><Telephone1/><Telephone2/><Telephone3/>
-          <TimeZoneCode>0</TimeZoneCode>
-          <UPSZone/><UTCOffset>0</UTCOffset>
-          <Line1/><Line2/><Line3/>
+          <StateOrProvince ${nilAttr}></StateOrProvince>
+          <Telephone1 ${nilAttr}></Telephone1>
+          <Telephone2 ${nilAttr}></Telephone2>
+          <Telephone3 ${nilAttr}></Telephone3>
+          <TimeZoneRuleVersionNumber ${nilAttr}></TimeZoneRuleVersionNumber>
+          <UPSZone ${nilAttr}></UPSZone>
+          <UTCOffset ${nilAttr}></UTCOffset>
+          <UTCConversionTimeZoneCode ${nilAttr}></UTCConversionTimeZoneCode>
+        </Address>
+        <Address>
+          <AddressNumber>2</AddressNumber>
+          <AddressTypeCode>1</AddressTypeCode>
+          <City ${nilAttr}></City>
+          <County ${nilAttr}></County>
+          <Country ${nilAttr}></Country>
+          <Fax ${nilAttr}></Fax>
+          <FreightTermsCode ${nilAttr}></FreightTermsCode>
+          <ImportSequenceNumber ${nilAttr}></ImportSequenceNumber>
+          <Latitude ${nilAttr}></Latitude>
+          <Line1 ${nilAttr}></Line1>
+          <Line2 ${nilAttr}></Line2>
+          <Line3 ${nilAttr}></Line3>
+          <Longitude ${nilAttr}></Longitude>
+          <Name ${nilAttr}></Name>
+          <PostalCode ${nilAttr}></PostalCode>
+          <PostOfficeBox ${nilAttr}></PostOfficeBox>
+          <PrimaryContactName ${nilAttr}></PrimaryContactName>
+          <ShippingMethodCode>1</ShippingMethodCode>
+          <StateOrProvince ${nilAttr}></StateOrProvince>
+          <Telephone1 ${nilAttr}></Telephone1>
+          <Telephone2 ${nilAttr}></Telephone2>
+          <Telephone3 ${nilAttr}></Telephone3>
+          <TimeZoneRuleVersionNumber ${nilAttr}></TimeZoneRuleVersionNumber>
+          <UPSZone ${nilAttr}></UPSZone>
+          <UTCOffset ${nilAttr}></UTCOffset>
+          <UTCConversionTimeZoneCode ${nilAttr}></UTCConversionTimeZoneCode>
         </Address>
       </Addresses>
     </Publisher>
-    <RootComponents/>
-    <MissingDependencies/>
+    <RootComponents>${flowGuid ? `\n      <RootComponent type="29" id="{${flowGuid.toLowerCase()}}" behavior="0" />` : ''}
+    </RootComponents>
+    <MissingDependencies />
   </SolutionManifest>
 </ImportExportXml>`;
 }
 
 const CUSTOMIZATIONS_XML = `<?xml version="1.0" encoding="utf-8"?>
-<ImportExportXml version="9.2.24021.183" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Entities/><Roles/><Workflows/><FieldSecurityProfiles/>
-  <Templates/><EntityMaps/><EntityRelationships/>
-  <OrganizationSettings/><optionsets/><CustomControls/><EntityDataProviders/>
+<ImportExportXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" OrganizationVersion="9.2.26054.00147" OrganizationSchemaType="Standard" CRMServerServiceabilityVersion="9.2.26054.00147">
+  <Entities />
+  <Roles />
+  <Workflows />
+  <FieldSecurityProfiles />
+  <Templates />
+  <EntityMaps />
+  <EntityRelationships />
+  <OrganizationSettings />
+  <optionsets />
+  <CustomControls />
+  <EntityDataProviders />
+  <connectionreferences />
+  <Languages>
+    <Language>1033</Language>
+  </Languages>
 </ImportExportXml>`;

@@ -310,10 +310,14 @@ export async function generateSolutionDocs(
   for (const solName of solutionDirs) {
     const solDir = path.join(solutionsRoot, solName);
     const workflowsDir = path.join(solDir, 'Workflows');
-    if (!fs.existsSync(workflowsDir)) { continue; }
+    const botComponentsDir = path.join(solDir, 'botcomponents');
+    const hasFlows  = fs.existsSync(workflowsDir);
+    const hasTopics = fs.existsSync(botComponentsDir);
+    if (!hasFlows && !hasTopics) { continue; }
 
-    const flowFiles = fs.readdirSync(workflowsDir).filter(f => f.endsWith('.json'));
-    if (!flowFiles.length) { continue; }
+    const flowFiles = hasFlows ? fs.readdirSync(workflowsDir).filter(f => f.endsWith('.json')) : [];
+    const topicDirs = hasTopics ? fs.readdirSync(botComponentsDir).filter(d => d.includes('.topic.')) : [];
+    if (!flowFiles.length && !topicDirs.length) { continue; }
 
     // Parse all flows in this solution
     const parsed: Array<ParsedFlow | null> = flowFiles.map(f =>
@@ -339,7 +343,10 @@ export async function generateSolutionDocs(
       lines.push(`> ${aiSummaries.solutionSummary}`, ``);
     }
 
-    lines.push(`**${flowFiles.length} flow${flowFiles.length !== 1 ? 's' : ''}**`, ``);
+    const counts: string[] = [];
+    if (flowFiles.length) { counts.push(`**${flowFiles.length} flow${flowFiles.length !== 1 ? 's' : ''}**`); }
+    if (topicDirs.length) { counts.push(`**${topicDirs.length} bot topic${topicDirs.length !== 1 ? 's' : ''}**`); }
+    lines.push(counts.join(' · '), ``);
 
     // ── Solution-level data map ────────────────────────────────────────────────
     const allConnections: DataConnection[] = [];
@@ -414,6 +421,60 @@ export async function generateSolutionDocs(
 
       if (connectors.length) {
         lines.push(`**Connectors used:** ${connectors.join(', ')}`, ``);
+      }
+    }
+
+    // ── Bot Topics section ─────────────────────────────────────────────────────
+    if (topicDirs.length) {
+      lines.push(`---`, ``, `## 🤖 Bot Topics`, ``);
+      for (const topicDir of topicDirs) {
+        const dataPath = path.join(botComponentsDir, topicDir, 'data');
+        if (!fs.existsSync(dataPath)) { continue; }
+        const yaml = fs.readFileSync(dataPath, 'utf8');
+
+        // Extract display name
+        const nameMatch = yaml.match(/displayName:\s*(.+)/);
+        const topicName = nameMatch?.[1]?.trim() ?? topicDir.split('.topic.').pop() ?? topicDir;
+
+        // Count action kinds
+        const kindMatches = [...yaml.matchAll(/^\s+kind:\s+(\w+)/gm)].map(m => m[1]);
+        const kindCounts: Record<string, number> = {};
+        for (const k of kindMatches) { kindCounts[k] = (kindCounts[k] ?? 0) + 1; }
+
+        // Extract flows invoked
+        const flowIds = [...yaml.matchAll(/flowId:\s+([a-f0-9-]{36})/gi)].map(m => m[1]);
+
+        // Extract variables
+        const vars = [...new Set([...yaml.matchAll(/variable:\s+(Topic\.\w+|Global\.\w+)/g)].map(m => m[1]))];
+
+        // Extract messages sent to user
+        const messages = [...yaml.matchAll(/activity:\s+(.+)/g)].map(m => m[1].trim()).filter(m => !m.startsWith('attachments:'));
+
+        lines.push(`### 💬 ${topicName}`, ``);
+
+        const summary: string[] = [];
+        if (kindCounts['Question'])       { summary.push(`${kindCounts['Question']} question${kindCounts['Question'] !== 1 ? 's' : ''}`); }
+        if (kindCounts['ConditionGroup']) { summary.push(`${kindCounts['ConditionGroup']} condition${kindCounts['ConditionGroup'] !== 1 ? 's' : ''}`); }
+        if (kindCounts['InvokeFlowAction']) { summary.push(`${kindCounts['InvokeFlowAction']} flow call${kindCounts['InvokeFlowAction'] !== 1 ? 's' : ''}`); }
+        if (kindCounts['SendActivity'])   { summary.push(`${kindCounts['SendActivity']} message${kindCounts['SendActivity'] !== 1 ? 's' : ''}`); }
+        if (summary.length) { lines.push(summary.join(' · '), ``); }
+
+        if (vars.length) {
+          lines.push(`**Variables:** ${vars.join(', ')}`, ``);
+        }
+
+        if (flowIds.length) {
+          lines.push(`**Flows called:** ${flowIds.map(id => `\`${id}\``).join(', ')}`, ``);
+        }
+
+        if (messages.length) {
+          lines.push(`**Bot messages:**`);
+          for (const m of messages.slice(0, 5)) {
+            lines.push(`- _${m.replace(/["`]/g, "'")}_`);
+          }
+          if (messages.length > 5) { lines.push(`- _…and ${messages.length - 5} more_`); }
+          lines.push(``);
+        }
       }
     }
 

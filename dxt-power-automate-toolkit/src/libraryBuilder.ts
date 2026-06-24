@@ -21,11 +21,23 @@ export interface LibraryConnector {
   operations: Record<string, LibraryOperation>;
 }
 
+export type BotPatternKind = 'AdaptiveCard' | 'FlowCall' | 'Question' | 'Message';
+
+export interface BotPattern {
+  kind: BotPatternKind;
+  displayName: string;
+  topic: string;
+  solution: string;
+  snippet: string;  // raw YAML or JSON string — copy as-is
+}
+
 export interface Library {
   lastUpdated: string;
   solutionsScanned: number;
   flowsScanned: number;
+  topicsScanned: number;
   connectors: Record<string, LibraryConnector>;
+  botPatterns: BotPattern[];
 }
 
 // ─── Connector / operation display names ─────────────────────────────────────
@@ -222,12 +234,134 @@ function indexActions(
   }
 }
 
+// ─── Bot topic indexer ────────────────────────────────────────────────────────
+
+function extractYamlBlock(lines: string[], startIdx: number): string[] {
+  const baseIndent = lines[startIdx].match(/^(\s*)/)?.[1].length ?? 0;
+  const block = [lines[startIdx]];
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() === '') { block.push(line); continue; }
+    const indent = line.match(/^(\s*)/)?.[1].length ?? 0;
+    if (indent <= baseIndent) { break; }
+    block.push(line);
+  }
+  return block;
+}
+
+function indexBotTopics(solutionsRoot: string, lib: Library): void {
+  for (const sol of fs.readdirSync(solutionsRoot)) {
+    if (sol.startsWith('.')) { continue; }
+    const botDir = path.join(solutionsRoot, sol, 'botcomponents');
+    if (!fs.existsSync(botDir)) { continue; }
+
+    for (const topicDir of fs.readdirSync(botDir).filter(d => d.includes('.topic.'))) {
+      const dataPath = path.join(botDir, topicDir, 'data');
+      if (!fs.existsSync(dataPath)) { continue; }
+
+      const topicName = topicDir.split('.topic.').pop() ?? topicDir;
+      let yaml: string;
+      try { yaml = fs.readFileSync(dataPath, 'utf8'); } catch { continue; }
+      lib.topicsScanned++;
+
+      const lines = yaml.split('\n');
+      let cardCounter = 0;
+      let flowCounter = 0;
+      let questionCounter = 0;
+      const addedMessages = new Set<string>();
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const kindMatch = line.match(/^(\s*)- kind:\s+(\w+)/);
+        if (!kindMatch) { continue; }
+        const kind = kindMatch[2];
+
+        // ── Adaptive cards ───────────────────────────────────────────────────
+        if (kind === 'AdaptiveCardPrompt' || kind === 'AdaptiveCardTemplate') {
+          const block = extractYamlBlock(lines, i);
+          const cardLineIdx = block.findIndex(l => l.includes('card: |-') || l.includes('cardContent: |-'));
+          if (cardLineIdx === -1) { continue; }
+          const baseIndent = (block[cardLineIdx + 1]?.match(/^(\s*)/)?.[1].length ?? 0);
+          const cardLines: string[] = [];
+          for (let j = cardLineIdx + 1; j < block.length; j++) {
+            const l = block[j];
+            if (l.trim() === '') { break; }
+            const ind = l.match(/^(\s*)/)?.[1].length ?? 0;
+            if (ind < baseIndent) { break; }
+            cardLines.push(l.slice(baseIndent));
+          }
+          if (!cardLines.length) { continue; }
+          cardCounter++;
+          lib.botPatterns.push({
+            kind: 'AdaptiveCard',
+            displayName: `Card ${cardCounter} — ${topicName}`,
+            topic: topicName,
+            solution: sol,
+            snippet: cardLines.join('\n'),
+          });
+        }
+
+        // ── Flow calls ───────────────────────────────────────────────────────
+        if (kind === 'InvokeFlowAction') {
+          const block = extractYamlBlock(lines, i);
+          flowCounter++;
+          const flowIdLine = block.find(l => l.includes('flowId:'));
+          const flowId = flowIdLine?.match(/flowId:\s+([a-f0-9-]{36})/i)?.[1] ?? '';
+          lib.botPatterns.push({
+            kind: 'FlowCall',
+            displayName: `Flow call ${flowCounter} — ${topicName}`,
+            topic: topicName,
+            solution: sol,
+            snippet: block.map(l => l.trimStart()).join('\n'),
+          });
+        }
+
+        // ── Questions ────────────────────────────────────────────────────────
+        if (kind === 'Question') {
+          const block = extractYamlBlock(lines, i);
+          questionCounter++;
+          const varLine = block.find(l => /variable:/.test(l));
+          const varName = varLine?.match(/variable:\s+(.+)/)?.[1]?.trim() ?? 'Unknown';
+          lib.botPatterns.push({
+            kind: 'Question',
+            displayName: `Question → ${varName}`,
+            topic: topicName,
+            solution: sol,
+            snippet: block.map(l => l.trimStart()).join('\n'),
+          });
+        }
+
+        // ── Bot messages ─────────────────────────────────────────────────────
+        if (kind === 'SendActivity') {
+          const nextLine = lines[i + 1] ?? '';
+          const activityMatch = nextLine.match(/activity:\s+(.+)/);
+          if (activityMatch) {
+            const msg = activityMatch[1].trim();
+            if (!addedMessages.has(msg) && msg.length > 5) {
+              addedMessages.add(msg);
+              lib.botPatterns.push({
+                kind: 'Message',
+                displayName: msg.slice(0, 60) + (msg.length > 60 ? '…' : ''),
+                topic: topicName,
+                solution: sol,
+                snippet: `- kind: SendActivity\n  activity: ${msg}`,
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 export function buildLibrary(solutionsRoot: string): Library {
   const lib: Library = {
     lastUpdated: new Date().toISOString(),
     solutionsScanned: 0,
     flowsScanned: 0,
-    connectors: {}
+    topicsScanned: 0,
+    connectors: {},
+    botPatterns: [],
   };
 
   if (!fs.existsSync(solutionsRoot)) { return lib; }
@@ -250,6 +384,7 @@ export function buildLibrary(solutionsRoot: string): Library {
     }
   }
 
+  indexBotTopics(solutionsRoot, lib);
   return lib;
 }
 
@@ -264,8 +399,214 @@ export function loadLibrary(solutionsRoot: string): Library | null {
   catch { return null; }
 }
 
-export function generateClaudeMd(lib: Library, solutionsRoot: string): void {
+/**
+ * Merge `patch` into `base`, returning a combined library.
+ * - Connectors/operations: union of examples, deduped by solution+flow+actionName.
+ *   `patch` examples take precedence (added first when both have the same slot).
+ * - Bot patterns: deduped by kind+solution+topic+displayName.
+ * - Counts: summed, reflecting the combined scan coverage.
+ * - Solutions/flows scanned: summed (rough — may double-count shared solutions).
+ */
+export function mergeLibraries(base: Library, patch: Library): Library {
+  // Deep-clone base connectors so we don't mutate the original
+  const connectors: Record<string, LibraryConnector> = JSON.parse(JSON.stringify(base.connectors ?? {}));
+
+  for (const [cKey, pConn] of Object.entries(patch.connectors ?? {})) {
+    if (!connectors[cKey]) {
+      connectors[cKey] = JSON.parse(JSON.stringify(pConn));
+      continue;
+    }
+    const rConn = connectors[cKey];
+    rConn.count += pConn.count;
+
+    for (const [oKey, pOp] of Object.entries(pConn.operations)) {
+      if (!rConn.operations[oKey]) {
+        rConn.operations[oKey] = JSON.parse(JSON.stringify(pOp));
+        continue;
+      }
+      const rOp = rConn.operations[oKey];
+      rOp.count += pOp.count;
+
+      // Merge examples: patch examples first (fresher), dedup by solution+flow+actionName
+      const seen = new Set(pOp.examples.map(e => `${e.solution}|${e.flow}|${e.actionName}`));
+      const merged = [...pOp.examples];
+      for (const ex of rOp.examples) {
+        const key = `${ex.solution}|${ex.flow}|${ex.actionName}`;
+        if (!seen.has(key)) { merged.push(ex); seen.add(key); }
+      }
+      rOp.examples = merged.slice(0, 5); // keep at most 5
+    }
+  }
+
+  // Merge bot patterns: dedup by kind+solution+topic+displayName
+  const bpSeen = new Set((patch.botPatterns ?? []).map(p => `${p.kind}|${p.solution}|${p.topic}|${p.displayName}`));
+  const botPatterns = [...(patch.botPatterns ?? [])];
+  for (const p of (base.botPatterns ?? [])) {
+    const key = `${p.kind}|${p.solution}|${p.topic}|${p.displayName}`;
+    if (!bpSeen.has(key)) { botPatterns.push(p); bpSeen.add(key); }
+  }
+
+  return {
+    lastUpdated: new Date().toISOString(),
+    solutionsScanned: (base.solutionsScanned ?? 0) + (patch.solutionsScanned ?? 0),
+    flowsScanned: (base.flowsScanned ?? 0) + (patch.flowsScanned ?? 0),
+    topicsScanned: (base.topicsScanned ?? 0) + (patch.topicsScanned ?? 0),
+    connectors,
+    botPatterns,
+  };
+}
+
+// ─── Context helpers ──────────────────────────────────────────────────────────
+
+function buildCompanySection(workspaceRoot: string): string {
+  const ctxPath = path.join(workspaceRoot, 'company-context.json');
+  if (!fs.existsSync(ctxPath)) { return ''; }
+  let ctx: any;
+  try { ctx = JSON.parse(fs.readFileSync(ctxPath, 'utf8')); } catch { return ''; }
+
+  const lines: string[] = [];
+
+  // ── Organisation ──
+  lines.push(`## Organisation`, ``);
+  const brandSummary = (ctx.brands ?? [])
+    .map((b: any) => `${b.name} (${b.prefix})`)
+    .join(', ');
+  lines.push(`**${ctx.group ?? 'Company'}** — brands: ${brandSummary}`, ``);
+
+  for (const b of (ctx.brands ?? [])) {
+    lines.push(`### ${b.name} (${b.prefix})`);
+    lines.push(b.description ?? '');
+    if (b.products?.length) {
+      lines.push(`**Products:** ${b.products.join(' · ')}`);
+    }
+    if (b.keyTerms && Object.keys(b.keyTerms).length) {
+      lines.push(`**Key terms:**`);
+      for (const [t, d] of Object.entries(b.keyTerms as Record<string, string>)) {
+        lines.push(`- ${t}: ${d}`);
+      }
+    }
+    lines.push(``);
+  }
+
+  // ── Cross-brand terms ──
+  if (ctx.crossBrandTerms && Object.keys(ctx.crossBrandTerms).length) {
+    lines.push(`## Cross-brand terminology`, ``);
+    for (const [t, d] of Object.entries(ctx.crossBrandTerms as Record<string, string>)) {
+      lines.push(`- **${t}**: ${d}`);
+    }
+    lines.push(``);
+  }
+
+  // ── Internal systems ──
+  if (ctx.internalSystems?.length) {
+    lines.push(`## Internal systems`, ``);
+    for (const s of ctx.internalSystems as Array<{ name: string; description: string }>) {
+      lines.push(`- **${s.name}**: ${s.description}`);
+    }
+    lines.push(``);
+  }
+
+  // ── Team ──
+  const team = ctx.team;
+  if (team) {
+    lines.push(`## DT Team`, ``);
+    lines.push(`**${team.name ?? 'Digital Transformation Team'}** — managed by ${team.manager ?? 'Geoff Keenan'}`);
+    if (team.members?.length) {
+      lines.push(`Members: ${(team.members as string[]).join(', ')} — ${team.specialisation ?? 'full generalists'}`);
+    }
+    lines.push(``);
+
+    if (team.asanaWorkflow) {
+      const aw = team.asanaWorkflow;
+      lines.push(`### Asana workflow`);
+      lines.push(`Workspace: **${aw.workspace}** (GID: \`${aw.workspaceGid}\`)`);
+      lines.push(`Main project: **${aw.mainProject}** (GID: \`${aw.mainProjectGid}\`)`);
+      if (aw.sections) {
+        lines.push(`Sections:`);
+        for (const [name, desc] of Object.entries(aw.sections as Record<string, string>)) {
+          lines.push(`- **${name}**: ${desc}`);
+        }
+      }
+      if (aw.userGids) {
+        lines.push(`User GIDs: ${Object.entries(aw.userGids as Record<string, string>).map(([n, g]) => `${n} = \`${g}\``).join(', ')}`);
+      }
+      lines.push(``);
+    }
+
+    if (team.environments) {
+      lines.push(`### PA Environments`);
+      for (const [env, desc] of Object.entries(team.environments as Record<string, string>)) {
+        lines.push(`- **${env}**: ${desc}`);
+      }
+      lines.push(``);
+    }
+
+    if (team.deploymentPipeline) {
+      lines.push(`### Deployment pipeline`);
+      lines.push(team.deploymentPipeline, ``);
+    }
+  }
+
+  // ── Bot architecture ──
+  const bot = ctx.botArchitecture;
+  if (bot) {
+    lines.push(`## Bot architecture`, ``);
+
+    if (bot.internalAgentBots) {
+      const ib = bot.internalAgentBots;
+      lines.push(`### Internal agent bots — ${ib.platform} on ${ib.channel}`);
+      lines.push(`> ${ib.note ?? ''}`);
+      lines.push(``);
+      lines.push(`**PA connection:** ${ib.connectionToPowerAutomate ?? ''}`);
+      if (ib.commonTopics?.length) {
+        lines.push(`**Common topics:**`);
+        for (const t of ib.commonTopics as string[]) { lines.push(`- ${t}`); }
+      }
+      lines.push(``);
+    }
+
+    if (bot.customerFacingWhatsApp) {
+      const wa = bot.customerFacingWhatsApp;
+      lines.push(`### Customer WhatsApp — ${wa.platform} (brands: ${(wa.brands as string[]).join(', ')})`);
+      lines.push(`- **Outbound:** ${wa.outbound}`);
+      lines.push(`- **Inbound:** ${wa.inbound}`);
+      if (wa.note) { lines.push(`> ${wa.note}`); }
+      lines.push(``);
+    }
+
+    if (bot.cognigy?.note) {
+      lines.push(`> ⚠️ ${bot.cognigy.note}`, ``);
+    }
+  }
+
+  // ── Flow conventions ──
+  const fc = ctx.flowConventions;
+  if (fc) {
+    lines.push(`## Flow conventions`, ``);
+    if (fc.solutionNaming) { lines.push(`**Solution naming:** ${fc.solutionNaming}`); }
+    if (fc.flowNaming)     { lines.push(`**Flow naming:** ${fc.flowNaming}`); }
+    if (fc.errorHandling)  { lines.push(`**Error handling:** ${fc.errorHandling}`); }
+    if (fc.connectors?.length) {
+      lines.push(`**Connectors used:** ${(fc.connectors as string[]).join(', ')}`);
+    }
+    lines.push(``);
+  }
+
+  return lines.join('\n');
+}
+
+function buildCloudIndexSection(workspaceRoot: string): string {
+  const idxPath = path.join(workspaceRoot, 'DXT_CLOUD_INDEX.md');
+  if (!fs.existsSync(idxPath)) { return ''; }
+  try {
+    const content = fs.readFileSync(idxPath, 'utf8');
+    return `## Cloud Index — all solutions across all environments\n\n${content}\n`;
+  } catch { return ''; }
+}
+
+export function generateClaudeMd(lib: Library, solutionsRoot: string, workspaceRoot?: string): void {
   const updated = new Date(lib.lastUpdated).toLocaleString();
+  const outDir = workspaceRoot ?? solutionsRoot;
 
   // Top connectors by usage
   const topConnectors = Object.values(lib.connectors)
@@ -292,10 +633,39 @@ export function generateClaudeMd(lib: Library, solutionsRoot: string): void {
     return 'shared_sharepointonline-1';
   })();
 
-  const md = `# Power Automate Solutions — AI Context
+  const botSection = (() => {
+    if (!lib.botPatterns.length) { return ''; }
+    const cards  = lib.botPatterns.filter(p => p.kind === 'AdaptiveCard');
+    const calls  = lib.botPatterns.filter(p => p.kind === 'FlowCall');
+    const qs     = lib.botPatterns.filter(p => p.kind === 'Question');
+    const msgs   = lib.botPatterns.filter(p => p.kind === 'Message');
+    const parts: string[] = [`## Bot Topic Patterns`, ``];
+    if (cards.length)  { parts.push(`### Adaptive Cards (${cards.length})`, ``, ...cards.slice(0,3).map(c => `- **${c.displayName}** (${c.solution})\n\`\`\`json\n${c.snippet}\n\`\`\``), ``); }
+    if (calls.length)  { parts.push(`### Flow Calls (${calls.length})`, ``, ...calls.slice(0,3).map(c => `- **${c.displayName}** (${c.solution})\n\`\`\`yaml\n${c.snippet}\n\`\`\``), ``); }
+    if (qs.length)     { parts.push(`### Question Patterns (${qs.length})`, ``, ...qs.slice(0,3).map(q => `- **${q.displayName}** (${q.solution})\n\`\`\`yaml\n${q.snippet}\n\`\`\``), ``); }
+    parts.push(
+      `### Tips for writing bot topics`,
+      ``,
+      `1. Variables: \`Topic.VarName\` for topic-scoped, \`Global.VarName\` for cross-topic persistence.`,
+      `2. Flow inputs use \`=VariableName\` syntax for dynamic values, plain string for literals.`,
+      `3. Always declare \`outputType\` with matching property names to \`output.binding\` keys.`,
+      `4. Condition check format: \`=Topic.Var = 'full.enum.path.Value'\` for closed list choices.`,
+      `5. Use \`kind: GotoAction\` with \`actionId\` to loop back to a previous step.`,
+      ``
+    );
+    return parts.join('\n');
+  })();
+
+  const companySection   = workspaceRoot ? buildCompanySection(workspaceRoot)   : '';
+  const cloudIndexSection = workspaceRoot ? buildCloudIndexSection(workspaceRoot) : '';
+
+  const md = `# DXT Power Automate Toolkit — AI Context
 
 > Auto-generated by DXT Power Automate Toolkit on ${updated}
-> ${lib.flowsScanned} flows · ${lib.solutionsScanned} solutions indexed
+> ${lib.flowsScanned} flows · ${lib.solutionsScanned} solutions · ${lib.topicsScanned} bot topics indexed
+> Share this file with teammates — it is automatically synced to SharePoint on each library rebuild.
+
+${companySection}
 
 ## Folder structure
 
@@ -370,7 +740,9 @@ ${topConnectors}
 4. **\`runAfter\`** must reference actions that actually exist in the same scope (top-level, or inside the same \`Foreach\`/\`If\` branch).
 5. For \`If\` actions: yes-branch actions go in \`actions\`, no-branch in \`else.actions\`.
 6. For \`Foreach\` actions: inner actions go in \`actions\`, and \`foreach\` is the array expression.
-`;
 
-  fs.writeFileSync(path.join(solutionsRoot, 'CLAUDE.md'), md, 'utf8');
+${cloudIndexSection}
+${botSection}`;
+
+  fs.writeFileSync(path.join(outDir, 'CLAUDE.md'), md, 'utf8');
 }
