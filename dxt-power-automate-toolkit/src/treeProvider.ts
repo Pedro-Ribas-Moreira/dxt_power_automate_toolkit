@@ -2,8 +2,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { PacEnvironment, PacSolution, listEnvironments, listSolutions, listLocalFlows } from './pacCli';
+import { loadLinks } from './asanaLinks';
+import { fetchTask, getAsanaPat } from './asanaApi';
 
-export type NodeKind = 'environment' | 'solution' | 'solution-local' | 'flow' | 'topic' | 'message';
+export type NodeKind = 'environment' | 'solution' | 'solution-local' | 'flow' | 'topic' | 'asana-task' | 'message';
 
 export interface NodePayload {
   environment?: PacEnvironment;
@@ -15,6 +17,8 @@ export interface NodePayload {
   solutionLocalDir?: string;
   flowPath?: string;
   topicPath?: string;
+  asanaGid?: string;
+  asanaUrl?: string;
 }
 
 export class PowerAutomateNode extends vscode.TreeItem {
@@ -41,6 +45,8 @@ export class PowerAutomateNode extends vscode.TreeItem {
         return new vscode.ThemeIcon('play-circle', new vscode.ThemeColor('charts.purple'));
       case 'topic':
         return new vscode.ThemeIcon('comment-discussion', new vscode.ThemeColor('charts.yellow'));
+      case 'asana-task':
+        return new vscode.ThemeIcon('circle-large-outline', new vscode.ThemeColor('charts.red'));
       default:
         return new vscode.ThemeIcon('info');
     }
@@ -143,7 +149,7 @@ export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerA
     }
   }
 
-  private fetchLocalFlows(solNode: PowerAutomateNode): PowerAutomateNode[] {
+  private async fetchLocalFlows(solNode: PowerAutomateNode): Promise<PowerAutomateNode[]> {
     const dir = solNode.payload?.solutionLocalDir;
     if (!dir) { return []; }
     const envId      = solNode.payload?.envId;
@@ -196,6 +202,48 @@ export class PowerAutomateTreeProvider implements vscode.TreeDataProvider<PowerA
         };
         nodes.push(node);
       }
+    }
+
+    // ── Linked Asana tasks ───────────────────────────────────────────────────
+    // Asana must never break or hang the flows list: every fetch is caught and
+    // the whole block is time-boxed to 4 s (cached tasks resolve instantly).
+    const solutionUniqueName = solNode.payload?.solution?.SolutionUniqueName;
+    if (solutionUniqueName && this.solutionsRoot) {
+      const workspaceRoot = path.dirname(this.solutionsRoot);
+      try {
+        const gids = loadLinks(workspaceRoot)[solutionUniqueName] ?? [];
+        if (gids.length && (await getAsanaPat())) {
+          const timeout = new Promise<null[]>(resolve => setTimeout(() => resolve(gids.map(() => null)), 4000));
+          const fetched = await Promise.race([
+            Promise.all(gids.map(g => fetchTask(g).catch(() => null))),
+            timeout,
+          ]);
+          gids.forEach((gid, i) => {
+            const task = fetched[i];
+            const node = new PowerAutomateNode(
+              task ? task.name : `Task ${gid}`,
+              'asana-task',
+              vscode.TreeItemCollapsibleState.None,
+              { solution: solNode.payload?.solution, solutionLocalDir: dir, asanaGid: gid, asanaUrl: task?.permalink_url }
+            );
+            if (task) {
+              node.description = task.completed
+                ? 'done'
+                : `${task.due_on ? `due ${task.due_on}` : 'no due date'} · ${task.assignee?.name ?? 'unassigned'}`;
+              node.tooltip = `${task.name}\n${task.permalink_url}`;
+              node.command = {
+                command: 'dxt-power-automate-toolkit.asanaOpenTask',
+                title: 'Open Asana Task',
+                arguments: [gid],
+              };
+            } else {
+              node.description = 'unavailable';
+              node.tooltip = `Asana task ${gid} could not be loaded (bad PAT, deleted task, or timeout)`;
+            }
+            nodes.push(node);
+          });
+        }
+      } catch { /* links file unreadable — skip silently */ }
     }
 
     if (!nodes.length) { return [infoNode('No flows or topics found')]; }

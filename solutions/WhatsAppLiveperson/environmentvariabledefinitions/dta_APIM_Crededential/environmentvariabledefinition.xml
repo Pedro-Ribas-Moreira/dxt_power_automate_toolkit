@@ -1,0 +1,14 @@
+<environmentvariabledefinition schemaname="dta_APIM_Crededential">
+  <defaultvalue>58a06a78-f11d-40ff-9da8-9e380658ae19</defaultvalue>
+  <description default="APIM_Crededential">
+    <label description="APIM_Crededential" languagecode="1033" />
+  </description>
+  <displayname default="APIM_Crededential">
+    <label description="APIM_Crededential" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.8</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

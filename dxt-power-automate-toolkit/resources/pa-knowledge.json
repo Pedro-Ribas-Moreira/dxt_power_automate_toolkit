@@ -1,0 +1,304 @@
+{
+  "lastUpdated": "2026-07-01",
+  "source": [
+    "https://learn.microsoft.com/en-us/azure/logic-apps/workflow-definition-language-functions-reference",
+    "https://learn.microsoft.com/en-us/power-automate/use-expressions-in-conditions",
+    "https://learn.microsoft.com/en-us/power-automate/limits-and-config",
+    "https://learn.microsoft.com/en-us/power-automate/apply-to-each"
+  ],
+
+  "expressions": {
+    "syntax": "Use @{expression} to embed inside a string (interpolation). Use @expression alone when the entire field value is an expression. Safe navigation: use ?['field'] or ?[0] to avoid null errors — e.g. triggerBody()?['Subject'].",
+
+    "referencing": [
+      "triggerBody()?['field'] — trigger body field (HTTP/manual triggers)",
+      "triggerOutputs()?['body']?['field'] — full trigger output",
+      "body('Action_Name')?['field'] — body output from a named action (spaces replaced with _)",
+      "outputs('Action_Name')?['body']?['field'] — full output from a named action",
+      "variables('variableName') — read a flow variable",
+      "items('Apply_to_each_name') — current loop item in Apply to each",
+      "items('Apply_to_each_name')?['FieldInternalName'] — specific field from current SP list item in loop",
+      "iterationIndexes('Until_name') — current iteration index in Until loop",
+      "parameters('paramName') — flow parameter value",
+      "result('Scope_name') — all action results inside a Scope (used in Catch to inspect Try)",
+      "result('Try')?[0]?['error']?['message'] — error message from a failed Try scope",
+      "result('Try')?[0]?['outputs']?['body'] — output body from last action in Try scope",
+      "actions('Action_Name')?['error']?['message'] — error from a specific named action",
+      "actions('Action_Name')?['status'] — status of a named action: 'Succeeded', 'Failed', 'Skipped'",
+      "outputs('HTTP_Action')?['statusCode'] — HTTP status code returned by an HTTP action",
+      "body('HTTP_Action')?['field'] — parse a field from JSON response body of an HTTP action",
+      "workflow().tags.flowDisplayName — display name of the current flow (use in error notifications)",
+      "workflow().tags.environmentName — environment the flow is running in",
+      "workflow().run.name — current run ID (use to build run history URL)",
+      "workflow().name — flow ID"
+    ],
+
+    "sharepointTrigger": {
+      "note": "SharePoint triggers fire per item. Use these patterns depending on trigger type.",
+      "singleItem": [
+        "triggerBody()?['ID'] — item ID",
+        "triggerBody()?['Title'] — Title column",
+        "triggerBody()?['FieldInternalName'] — any column by internal name",
+        "triggerBody()?['Author']?['DisplayName'] — created-by display name",
+        "triggerBody()?['Editor']?['DisplayName'] — modified-by display name",
+        "triggerBody()?['Created'] — created timestamp (UTC)",
+        "triggerBody()?['Modified'] — modified timestamp (UTC)"
+      ],
+      "batchTrigger": [
+        "triggerBody()?['value'] — array of changed items (when trigger returns multiple)",
+        "triggerBody()?['value']?[0]?['ID'] — first item's ID",
+        "triggerBody()?['value']?[0]?['FieldInternalName'] — first item's field"
+      ],
+      "odataFilters": [
+        "$filter=Status eq 'Active' — exact match on choice/text column",
+        "$filter=CustomerCRN eq '@{variables('varCRN')}' — dynamic value filter",
+        "$filter=Created ge '@{addDays(utcNow(),-7)}' — items from last 7 days",
+        "$filter=Status eq 'Pending' and AssignedTo eq '@{triggerBody()?['Author']?['Email']}' — compound filter",
+        "$filter=startswith(Title,'PPP') — text starts with prefix",
+        "$orderby=Modified desc&$top=10 — latest 10 modified items",
+        "$select=ID,Title,Status,CustomerCRN — only fetch needed columns (improves performance)"
+      ]
+    },
+
+    "httpConnector": {
+      "note": "HTTP connector for external APIs (HappyFox, LivePerson, 8x8, custom endpoints).",
+      "authHeaders": [
+        "Authorization: Bearer @{variables('varAccessToken')} — Bearer token auth",
+        "Authorization: Basic @{base64(concat(variables('varUser'),':',variables('varPass')))} — Basic auth",
+        "X-API-Key: @{variables('varApiKey')} — API key header (always read from Key Vault, never hardcode)"
+      ],
+      "responsePatterns": [
+        "body('HTTP')?['data'] — top-level data field",
+        "body('HTTP')?['data']?[0]?['id'] — first item id from data array",
+        "body('HTTP')?['meta']?['total_count'] — pagination total",
+        "outputs('HTTP')?['statusCode'] — check for 200/201/204 before using body",
+        "outputs('HTTP')?['headers']?['Location'] — Location header (async create pattern)"
+      ],
+      "retryPolicyJson": {
+        "note": "Set on the HTTP action's inputs to override default retry behaviour",
+        "example": { "type": "fixed", "count": 4, "interval": "PT30S" },
+        "types": "fixed (fixed interval), exponential (doubling backoff), none (disable retries)"
+      },
+      "asyncPattern": "For long-running HTTP calls: send request, get 202 + Location header, poll Location with Until loop until status != 202"
+    },
+
+    "dataverse": {
+      "note": "Dataverse connector used for Copilot Studio bots and model-driven apps.",
+      "triggerPatterns": [
+        "triggerOutputs()?['body/cr50b_fieldname'] — Dataverse row field (schema prefix from solution publisher)",
+        "triggerOutputs()?['body/statecode'] — record state: 0=Active, 1=Inactive",
+        "triggerOutputs()?['body/_ownerid_value'] — owner GUID"
+      ],
+      "actionPatterns": [
+        "body('List_rows')?['value'] — array of rows from List rows action",
+        "body('List_rows')?['value']?[0]?['cr50b_fieldname'] — first row's field",
+        "body('Get_a_row_by_ID')?['cr50b_fieldname'] — field from single row lookup",
+        "first(body('List_rows')?['value'])?['cr50b_fieldname'] — first result safely"
+      ]
+    },
+
+    "commonFunctions": {
+      "string": [
+        "concat('Hello', ' ', 'World') → 'Hello World'",
+        "toLower('TEXT') → 'text'",
+        "toUpper('text') → 'TEXT'",
+        "trim(' hello ') → 'hello'",
+        "replace('hello world', 'world', 'PA') → 'hello PA'",
+        "substring('hello', 1, 3) → 'ell'  (start, length)",
+        "indexOf('hello world', 'world') → 6",
+        "startsWith('hello', 'he') → true",
+        "endsWith('hello', 'lo') → true",
+        "split('a,b,c', ',') → ['a','b','c']",
+        "guid() → new GUID string",
+        "length('hello') → 5",
+        "formatNumber(1234.5, '#,##0.00') → '1,234.50'"
+      ],
+      "logic": [
+        "if(equals(1,1), 'yes', 'no') → 'yes'",
+        "coalesce(null, null, 'default') → 'default'  — first non-null",
+        "empty('') → true  — true if null/empty string/array/object",
+        "not(equals('a','b')) → true",
+        "and(greater(5,1), less(5,10)) → true",
+        "or(equals(1,2), equals(1,1)) → true",
+        "equals(variables('status'), 'Active') → true/false",
+        "if(empty(triggerBody()?['field']), 'default', triggerBody()?['field']) → null-safe with default"
+      ],
+      "collections": [
+        "length([1,2,3]) → 3",
+        "first([10,20,30]) → 10",
+        "last([10,20,30]) → 30",
+        "skip([1,2,3,4], 2) → [3,4]",
+        "take([1,2,3,4], 2) → [1,2]",
+        "join(['a','b','c'], ',') → 'a,b,c'",
+        "contains([1,2,3], 2) → true",
+        "union([1,2],[2,3]) → [1,2,3]",
+        "intersection([1,2,3],[2,3,4]) → [2,3]",
+        "sort([3,1,2]) → [1,2,3]",
+        "createArray('a', 'b', 'c') → ['a','b','c']",
+        "array(variables('varObject')) → wrap object in array for Apply to Each"
+      ],
+      "conversion": [
+        "int('42') → 42",
+        "string(42) → '42'",
+        "float('3.14') → 3.14",
+        "bool(1) → true",
+        "json('{\"key\":\"val\"}') → object",
+        "base64('hello') → 'aGVsbG8='",
+        "base64ToString('aGVsbG8=') → 'hello'",
+        "encodeUriComponent('hello world') → 'hello%20world'",
+        "decodeUriComponent('hello%20world') → 'hello world'"
+      ],
+      "datetime": [
+        "utcNow() → current UTC timestamp, e.g. '2024-01-15T10:30:00Z'",
+        "utcNow('yyyy-MM-dd') → '2024-01-15'",
+        "addDays(utcNow(), -7) → one week ago",
+        "addHours(utcNow(), 1) → one hour from now",
+        "addMinutes(utcNow(), 30) → 30 minutes from now",
+        "formatDateTime(utcNow(), 'dd/MM/yyyy HH:mm') → '15/01/2024 10:30'",
+        "formatDateTime(utcNow(), 'yyyy-MM-ddTHH:mm:ss') → ISO format",
+        "convertFromUtc(utcNow(), 'GMT Standard Time') → Dublin/London time (safe year-round for Ireland)",
+        "convertFromUtc(utcNow(), 'Ireland Standard Time') → Irish summer time only",
+        "convertTimeZone(utcNow(), 'UTC', 'GMT Standard Time') → same as convertFromUtc",
+        "dateDifference('2024-01-01', utcNow()) → timespan e.g. '15.00:00:00'",
+        "dayOfWeek(utcNow()) → 0=Sunday, 1=Monday ... 6=Saturday",
+        "startOfDay(utcNow()) → midnight today UTC",
+        "ticks(utcNow()) → number for duration math"
+      ],
+      "math": [
+        "add(5, 3) → 8",
+        "sub(10, 3) → 7",
+        "mul(4, 5) → 20",
+        "div(10, 4) → 2",
+        "mod(10, 3) → 1",
+        "min(5, 3, 8) → 3",
+        "max(5, 3, 8) → 8",
+        "range(1, 5) → [1,2,3,4,5]"
+      ]
+    }
+  },
+
+  "limits": {
+    "flowDefinition": {
+      "actionsPerFlow": "500 max — use child flows if approaching this",
+      "nestingDepth": "8 levels max for nested scopes/conditions/loops",
+      "variablesPerFlow": "250",
+      "actionNameMaxLength": "80 characters",
+      "expressionMaxLength": "8,192 characters",
+      "switchCases": "25 cases max per Switch"
+    },
+    "concurrencyAndLoops": {
+      "applyToEachItems": "100,000 items max (5,000 on Free/M365 plans)",
+      "applyToEachConcurrency": "1–50 parallel iterations (default: 1 = sequential)",
+      "untilIterations": "60 default, 5,000 maximum",
+      "concurrentRuns": "1–100 concurrent flow runs when Concurrency Control is on (default 25); unlimited when off",
+      "splitOnItems": "100,000 items (100 when trigger concurrency is on)"
+    },
+    "timeouts": {
+      "outboundSyncRequest": "120 seconds — use async polling or Until loop for longer operations",
+      "inboundRequest": "120 seconds — HTTP-triggered flows must respond within 2 minutes",
+      "maxRunDuration": "30 days",
+      "minRecurrenceInterval": "60 seconds"
+    },
+    "dataSize": {
+      "messageSize": "100 MB per action (1 GB with chunking enabled)",
+      "contentThroughput5min": "1.2 GB (120 MB on Free/M365)",
+      "expressionEvaluationLimit": "131,072 characters"
+    },
+    "retryPolicy": {
+      "defaultMediumHigh": "Up to 12 retries with exponential backoff (max ~1 hour between retries)",
+      "defaultLow": "2 retries with exponential backoff (max ~10 min between retries)",
+      "maxRetries": "90 attempts configurable",
+      "minRetryDelay": "5 seconds",
+      "maxRetryDelay": "1 day"
+    },
+    "suspension": {
+      "flowsWithErrors": "Turned off after 14 days of continuous failures",
+      "flowsWithoutActivity": "Turned off after 90 days with no trigger (not applicable with Process/per-flow license)",
+      "throttledFlows": "Turned off after 14 days of consistent throttling"
+    }
+  },
+
+  "patterns": {
+    "tryCatch": {
+      "description": "Wrap risky actions in a Scope named 'Try'. Add a second Scope named 'Catch' after it with Configure Run After set to FAILED, TIMEDOUT, SKIPPED. Use result('Try') to read error details in Catch.",
+      "errorDetails": "result('Try')?[0]?['error']?['message'] — error message from failed Try scope",
+      "errorBody": "result('Try')?[0]?['outputs']?['body'] — full output body from last action in Try",
+      "terminate": "Terminate action in Catch with Status=Failed and Message=result('Try')?[0]?['error']?['message'] — surfaces error in run history",
+      "emailNotification": "In Catch, send email/Teams with: flow name (@{workflow().tags.flowDisplayName}), error (@{result('Try')?[0]?['error']?['message']}), run link (@{concat('https://make.powerautomate.com/environments/',workflow().tags.environmentName,'/flows/',workflow().name,'/runs/',workflow().run.name)})",
+      "bestPractice": "Every flow should have at minimum a top-level Try scope and a Catch scope that sends a Teams/email notification and optionally Terminates."
+    },
+    "httpResponse": {
+      "description": "HTTP-triggered flows (Request trigger) MUST have a Response action on every branch. If any branch can skip or fail without hitting Response, the caller waits until the 120s timeout.",
+      "pattern": "Put Response in the main path. In the Catch scope, also send a Response with status 500 and the error body.",
+      "catchResponse": "{ \"status\": 500, \"body\": { \"error\": \"@{result('Try')?[0]?['error']?['message']}\" } }"
+    },
+    "httpConnector": {
+      "description": "For external REST APIs (HappyFox, LivePerson, 8x8, custom APIM endpoints). Always retrieve secrets from Key Vault before the HTTP call.",
+      "keyVaultFirst": "Add a 'Get secret' action (Key Vault connector) before the HTTP call. Use @{body('Get_secret')?['value']} as the token/API key in the Authorization header.",
+      "pagination": "Check body('HTTP')?['meta']?['total_count'] and body('HTTP')?['data'] length. Use Until loop with offset/page parameters to fetch all pages.",
+      "statusCheck": "Add a Condition after HTTP: outputs('HTTP')?['statusCode'] is greater than or equal to 200 AND less than 300. Put success path in Yes branch, error handling in No branch.",
+      "retryPolicy": "For flaky APIs set retry: { type: 'fixed', count: 4, interval: 'PT30S' }. For rate-limited APIs use exponential: { type: 'exponential', count: 4, minimumInterval: 'PT10S', maximumInterval: 'PT5M' }."
+    },
+    "parallelLoops": {
+      "description": "Apply to each runs sequentially by default. Enable concurrency (1–50) for independent items. Do NOT use concurrency if actions inside the loop write to the same variable or have ordering dependencies.",
+      "recommendation": "Use concurrency 5–10 for SharePoint/SQL calls, lower (2–3) if the connector has strict throttling limits."
+    },
+    "pagination": {
+      "description": "SharePoint List items, SQL Get rows, and most List-type actions return max 100 items by default. Enable Pagination in Settings and set threshold to 5,000 (or 100,000 with premium license).",
+      "warning": "Pagination counts each page as separate action runs against your daily limit. Use Filter Query / OData $filter to reduce result sets where possible."
+    },
+    "childFlows": {
+      "description": "Child flows (flows called via 'Run a Child Flow') are solution-aware flows with a trigger of 'Manually trigger a flow' or 'Run a flow'. Use them for: reusable logic, flows > 200 actions, fire-and-forget parallel processing.",
+      "fireAndForget": "To run a child flow without waiting: use 'Run a Child Flow' and set the 'Async Pattern' or don't reference the outputs — the parent continues immediately."
+    },
+    "selectAndFilter": {
+      "description": "Before an Apply to each: use Filter Array to reduce items and Select to reshape them. This avoids doing expensive operations on every item in the loop.",
+      "selectSyntax": "Select action: Map property names to expressions. Input: array. Output: array of reshaped objects.",
+      "filterSyntax": "Filter Array action: Item() expressions against a condition. Example: @greater(item()?['DueDate'], utcNow())"
+    },
+    "variables": {
+      "bestPractice": "Initialize all variables BEFORE any loop. Never use 'Initialize Variable' inside Apply to Each — it resets on every iteration and can cause race conditions when concurrency > 1.",
+      "appendVsSet": "Inside loops, use Append to String Variable or Append to Array Variable. Use Set Variable only when you intend to overwrite."
+    },
+    "compose": {
+      "description": "Use Compose actions to evaluate complex expressions once and reference the output multiple times. Avoids repeating long expressions and makes debugging easier — you can see the evaluated value in run history.",
+      "tip": "Name Compose actions descriptively: 'Compose - Format Date', 'Compose - Build Email Body' etc."
+    },
+    "deduplication": {
+      "description": "To process items only once: use a SharePoint/SQL 'Processed' flag column, or store processed IDs in a SharePoint list. Check before processing; mark after.",
+      "alternative": "Use the 'Get changes for an item or a file' SharePoint action to only retrieve new/modified items since last run."
+    }
+  },
+
+  "bestPractices": [
+    "Naming: Flows use Verb + Subject + Trigger format — 'Send NPS Survey on Case Close', 'Process MM110 Debt Alert'",
+    "Solutions: Always build flows inside solutions for ALM (export/import across Dev→Test→Prod environments)",
+    "Variables before loops: Initialize all variables outside and before any Apply to Each to avoid race conditions",
+    "Try/Catch on every flow: Wrap main logic in a Scope named Try, add Catch scope after with FAILED/TIMEDOUT/SKIPPED run-after. Send Teams/email notification from Catch.",
+    "Response on every HTTP path: HTTP-triggered flows must respond within 120s on all branches (success AND failure)",
+    "Pagination on list queries: Enable pagination for SharePoint/SQL list actions to get more than 100 items",
+    "Filter early: Use OData $filter / Filter Query on connectors rather than filtering in Apply to Each",
+    "Concurrency carefully: Only enable Apply to Each concurrency when items are truly independent",
+    "Compose for complex expressions: Use Compose to evaluate and name complex expressions for reuse and debuggability",
+    "Avoid hardcoded values: Use flow parameters or environment variables for configuration that differs between environments",
+    "Key Vault for secrets: Always retrieve API keys and passwords from Key Vault connector before HTTP calls — never hardcode in expressions",
+    "Monitor throttling: SharePoint connector throttles at ~600 requests per minute; SQL Server has its own connection pool limits",
+    "Child flows for reuse: Extract 3+ repeated action sequences into a child flow",
+    "Test with Compose: Use a Compose action to test an expression output before using it in a real action",
+    "UTC timestamps: Power Automate stores all timestamps in UTC — always use convertFromUtc(utcNow(), 'GMT Standard Time') for Irish time display/comparison",
+    "HTTP connector retry: Set custom retry policy on HTTP actions that call external APIs (4 retries, 30s interval works for most cases)",
+    "Run history cleanup: Flows that process sensitive data should have run history disabled or set to minimal retention",
+    "OData $select: Always specify $select on SharePoint/Dataverse list queries to fetch only needed columns — reduces payload and improves speed"
+  ],
+
+  "orgSpecific": {
+    "timezone": "Ireland Standard Time (UTC+1 in summer) / GMT Standard Time (UTC+0 in winter). Use convertFromUtc(utcNow(), 'GMT Standard Time') for safe year-round Irish time.",
+    "environments": "Development - DTA → Test - DTA → Production - DTA (PPAC pipeline). Always develop in Dev, never directly in Prod.",
+    "solutionNaming": "BrandPrefix_Product_Department_DescriptiveName — e.g. PPP_Elec_Retention_MarketMessaging, YE_Gas_CS_OnboardingReminder",
+    "brands": "PPP = PrepayPower, YE = Yuno Energy, YEH = Yuno Energy Heat, FIR = Firmus",
+    "connectors": "SharePoint (prepaypower.sharepoint.com), SQL Server (ppp-prod-sqlr01), Office 365 Outlook, Microsoft Teams, HappyFox (HTTP connector), LivePerson (HTTP connector), 8x8 (custom connector + HTTP), Dataverse (for Copilot Studio bots)",
+    "approvals": "Use Dataverse Approvals connector (not legacy Approvals) for Teams-based approval flows",
+    "errorTracking": "DTA Error Tracker endpoint (custom APIM connector: dta_dt-error-tracker-apim) — log errors to the central error tracking solution alongside Teams/email notifications",
+    "keyVault": "Always retrieve API keys and secrets from Key Vault connector — use GetSecret operation. Never hardcode tokens in flow expressions."
+  }
+}

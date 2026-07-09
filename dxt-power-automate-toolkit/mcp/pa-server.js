@@ -189,6 +189,45 @@ server.tool(
   }
 );
 
+// ─── get_connection_refs ─────────────────────────────────────────────────────
+// Exact connectionReferences blobs + common variables + trigger frequency from
+// the enriched library index — paste-ready context for writing new flow JSON.
+
+server.tool(
+  'get_connection_refs',
+  'Get the org\'s connection-reference JSON blobs (paste verbatim into properties.connectionReferences of new flows), plus common variable names and trigger-type frequency.',
+  {},
+  async () => {
+    const lib = loadLibrary();
+    if (!lib) {
+      return { content: [{ type: 'text', text: 'Library not built yet. Open the Power Automate Toolkit panel and click Build Library.' }] };
+    }
+    if (!lib.connectionRefs && !lib.variables && !lib.triggers) {
+      return { content: [{ type: 'text', text: 'Library not enriched yet — rebuild it with "Build Library from Local Solutions" (toolkit v0.3+).' }] };
+    }
+
+    const topVariables = Object.entries(lib.variables || {})
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 30)
+      .map(([name, v]) => ({ name, type: v.type, count: v.count }));
+
+    const triggerFrequency = Object.entries(lib.triggers || {})
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([label, t]) => ({ trigger: label, count: t.count }));
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          connectionRefs: lib.connectionRefs || {},
+          topVariables,
+          triggerFrequency,
+        }, null, 2)
+      }]
+    };
+  }
+);
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 const transport = new StdioServerTransport();
 await server.connect(transport);

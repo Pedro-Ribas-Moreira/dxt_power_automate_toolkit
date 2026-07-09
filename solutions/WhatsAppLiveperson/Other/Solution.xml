@@ -1,0 +1,126 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml version="9.2.26062.155" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" OrganizationVersion="9.2.26062.155" OrganizationSchemaType="Standard" CRMServerServiceabilityVersion="9.2.26062.00155">
+  <SolutionManifest>
+    <UniqueName>WhatsAppLiveperson</UniqueName>
+    <LocalizedNames>
+      <LocalizedName description="PPP - Oil - Retention - Oil Delivery" languagecode="1033" />
+    </LocalizedNames>
+    <Descriptions />
+    <Version>1.0.0.11</Version>
+    <Managed>0</Managed>
+    <Publisher>
+      <UniqueName>dta</UniqueName>
+      <LocalizedNames>
+        <LocalizedName description="Digital Transformation" languagecode="1033" />
+      </LocalizedNames>
+      <Descriptions>
+        <Description description="Digital Transformation" languagecode="1033" />
+      </Descriptions>
+      <EMailAddress xsi:nil="true"></EMailAddress>
+      <SupportingWebsiteUrl xsi:nil="true"></SupportingWebsiteUrl>
+      <CustomizationPrefix>dta</CustomizationPrefix>
+      <CustomizationOptionValuePrefix>78017</CustomizationOptionValuePrefix>
+      <Addresses>
+        <Address>
+          <AddressNumber>1</AddressNumber>
+          <AddressTypeCode>1</AddressTypeCode>
+          <City xsi:nil="true"></City>
+          <County xsi:nil="true"></County>
+          <Country xsi:nil="true"></Country>
+          <Fax xsi:nil="true"></Fax>
+          <FreightTermsCode xsi:nil="true"></FreightTermsCode>
+          <ImportSequenceNumber xsi:nil="true"></ImportSequenceNumber>
+          <Latitude xsi:nil="true"></Latitude>
+          <Line1 xsi:nil="true"></Line1>
+          <Line2 xsi:nil="true"></Line2>
+          <Line3 xsi:nil="true"></Line3>
+          <Longitude xsi:nil="true"></Longitude>
+          <Name xsi:nil="true"></Name>
+          <PostalCode xsi:nil="true"></PostalCode>
+          <PostOfficeBox xsi:nil="true"></PostOfficeBox>
+          <PrimaryContactName xsi:nil="true"></PrimaryContactName>
+          <ShippingMethodCode>1</ShippingMethodCode>
+          <StateOrProvince xsi:nil="true"></StateOrProvince>
+          <Telephone1 xsi:nil="true"></Telephone1>
+          <Telephone2 xsi:nil="true"></Telephone2>
+          <Telephone3 xsi:nil="true"></Telephone3>
+          <TimeZoneRuleVersionNumber xsi:nil="true"></TimeZoneRuleVersionNumber>
+          <UPSZone xsi:nil="true"></UPSZone>
+          <UTCOffset xsi:nil="true"></UTCOffset>
+          <UTCConversionTimeZoneCode xsi:nil="true"></UTCConversionTimeZoneCode>
+        </Address>
+        <Address>
+          <AddressNumber>2</AddressNumber>
+          <AddressTypeCode>1</AddressTypeCode>
+          <City xsi:nil="true"></City>
+          <County xsi:nil="true"></County>
+          <Country xsi:nil="true"></Country>
+          <Fax xsi:nil="true"></Fax>
+          <FreightTermsCode xsi:nil="true"></FreightTermsCode>
+          <ImportSequenceNumber xsi:nil="true"></ImportSequenceNumber>
+          <Latitude xsi:nil="true"></Latitude>
+          <Line1 xsi:nil="true"></Line1>
+          <Line2 xsi:nil="true"></Line2>
+          <Line3 xsi:nil="true"></Line3>
+          <Longitude xsi:nil="true"></Longitude>
+          <Name xsi:nil="true"></Name>
+          <PostalCode xsi:nil="true"></PostalCode>
+          <PostOfficeBox xsi:nil="true"></PostOfficeBox>
+          <PrimaryContactName xsi:nil="true"></PrimaryContactName>
+          <ShippingMethodCode>1</ShippingMethodCode>
+          <StateOrProvince xsi:nil="true"></StateOrProvince>
+          <Telephone1 xsi:nil="true"></Telephone1>
+          <Telephone2 xsi:nil="true"></Telephone2>
+          <Telephone3 xsi:nil="true"></Telephone3>
+          <TimeZoneRuleVersionNumber xsi:nil="true"></TimeZoneRuleVersionNumber>
+          <UPSZone xsi:nil="true"></UPSZone>
+          <UTCOffset xsi:nil="true"></UTCOffset>
+          <UTCConversionTimeZoneCode xsi:nil="true"></UTCConversionTimeZoneCode>
+        </Address>
+      </Addresses>
+    </Publisher>
+    <RootComponents>
+      <RootComponent type="29" id="{0395f86d-fc3e-f111-88b4-000d3adc2196}" behavior="0" />
+      <RootComponent type="29" id="{4795bc1a-a360-f011-bec2-7c1e52fba4ce}" behavior="0" />
+      <RootComponent type="29" id="{6213d44c-1d79-f111-ab0e-7ced8d495b9e}" behavior="0" />
+      <RootComponent type="29" id="{96cba4e0-b15c-f011-bec1-7c1e52fba4ce}" behavior="0" />
+      <RootComponent type="29" id="{97cba4e0-b15c-f011-bec1-7c1e52fba4ce}" behavior="0" />
+      <RootComponent type="29" id="{9e0bf372-c0f6-f011-8406-000d3ad81b4d}" behavior="0" />
+      <RootComponent type="372" id="{f4fbaf41-65a2-4e84-b186-ad8a781fc247}" schemaName="dta_5F8x8-20sms" behavior="0" />
+    </RootComponents>
+    <MissingDependencies>
+      <MissingDependency>
+        <Required type="connectionreference" displayName="dta_Outlook" solution="Active" id.connectionreferencelogicalname="dta_Outlook" />
+        <Dependent type="29" displayName="PPP - Oil - Retention - Oil Delivery - Scheduled - Get data from Power BI" id="{6213d44c-1d79-f111-ab0e-7ced8d495b9e}" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="connectionreference" displayName="dta_sharedexcelonlinebusiness_d6407" solution="Active" id.connectionreferencelogicalname="dta_sharedexcelonlinebusiness_d6407" />
+        <Dependent type="29" displayName="WhatsApp - Liverperson - Oil Delivery - Outreach to Oil Customers" id="{9e0bf372-c0f6-f011-8406-000d3ad81b4d}" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="connectionreference" displayName="dta_sharedoffice365_15837" solution="Active" id.connectionreferencelogicalname="dta_sharedoffice365_15837" />
+        <Dependent type="29" displayName="WhatsApp - Liverperson - Oil Delivery - Outreach to Oil Customers" id="{9e0bf372-c0f6-f011-8406-000d3ad81b4d}" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="connectionreference" displayName="dta_sharedoffice365_1c70b" solution="Active" id.connectionreferencelogicalname="dta_sharedoffice365_1c70b" />
+        <Dependent type="29" displayName="WhatsApp Liveperson - Oil Delivery - Receive HTTP request" id="{4795bc1a-a360-f011-bec2-7c1e52fba4ce}" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="connectionreference" displayName="dta_sharedoffice365_1c70b" solution="Active" id.connectionreferencelogicalname="dta_sharedoffice365_1c70b" />
+        <Dependent type="29" displayName="WhatsApp - Liverpeson - Send Oil Refil Template" id="{97cba4e0-b15c-f011-bec1-7c1e52fba4ce}" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="connectionreference" displayName="dta_sharedpowerbi_7edf2" solution="Active" id.connectionreferencelogicalname="dta_sharedpowerbi_7edf2" />
+        <Dependent type="29" displayName="WhatsApp - Liverperson - Oil Delivery - Outreach to Oil Customers" id="{9e0bf372-c0f6-f011-8406-000d3ad81b4d}" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="connectionreference" displayName="dta_sharedsharepointonline_1f2e3" solution="Active" id.connectionreferencelogicalname="dta_sharedsharepointonline_1f2e3" />
+        <Dependent type="29" displayName="WhatsApp - Liverperson - Oil Delivery - Outreach to Oil Customers" id="{9e0bf372-c0f6-f011-8406-000d3ad81b4d}" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="connectionreference" displayName="dta_sharedsharepointonline_698f0" solution="Active" id.connectionreferencelogicalname="dta_sharedsharepointonline_698f0" />
+        <Dependent type="29" displayName="PPP - Oil - Retention - Oil Delivery - Scheduled - Get data from Power BI" id="{6213d44c-1d79-f111-ab0e-7ced8d495b9e}" />
+      </MissingDependency>
+    </MissingDependencies>
+  </SolutionManifest>
+</ImportExportXml>

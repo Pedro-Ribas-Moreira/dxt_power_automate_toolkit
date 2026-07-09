@@ -1,0 +1,965 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "dta_sharedsharepointonline_b503c"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_excelonlinebusiness_1": {
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "dta_sharedexcelonlinebusiness_377c4"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_dta-5f8x8-20sms-5f19cf3490887ebbe4": {
+        "api": {
+          "name": "shared_dta-5f8x8-20sms-5f19cf3490887ebbe4",
+          "logicalName": "dta_5F8x8-20sms"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "new_shareddta5f8x820sms5f19cf3490887ebbe4_78b79"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_office365": {
+        "api": {
+          "name": "shared_office365"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "dta_sharedoffice365_1c70b"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "isInDevelopment (dta_isInDevelopment)": {
+          "defaultValue": true,
+          "type": "Bool",
+          "metadata": {
+            "schemaName": "dta_isInDevelopment",
+            "description": "check if the solution is in an development or production environment."
+          }
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "recurrence": {
+            "frequency": "Day",
+            "interval": 1,
+            "timeZone": "GMT Standard Time",
+            "schedule": {
+              "hours": [
+                "9"
+              ],
+              "minutes": [
+                0
+              ]
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "1472df87-7a9f-4a7a-a97a-d9580ee575c8"
+          },
+          "type": "Recurrence"
+        }
+      },
+      "actions": {
+        "Create_Report_-_Clear_Current_Excel": {
+          "actions": {
+            "Apply_to_each_2": {
+              "foreach": "@body('Parse_JSON__-_List_of_Items')",
+              "actions": {
+                "Create_item_-_Oil_Delivery": {
+                  "metadata": {
+                    "operationMetadataId": "29fde724-e733-4f33-8146-2f92158553ae"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "https://prepaypower.sharepoint.com",
+                      "table": "9d2dd0ee-7858-4b1e-aee9-f246bf6bb88a",
+                      "item/Title": "@items('Apply_to_each_2')?['Customer CRN']",
+                      "item/Status/Value": "Comms Sent",
+                      "item/NotificationChannel/Value": "WhatsApp",
+                      "item/CustomerFirstName": "@items('Apply_to_each_2')?['Customer First Name']",
+                      "item/CustomerLastName": "@items('Apply_to_each_2')?['Customer Last Name']",
+                      "item/CustomerCRN": "@items('Apply_to_each_2')?['Customer CRN']",
+                      "item/DateofDelivery": "@items('Apply_to_each_2')?['Date of Delivery']",
+                      "item/CustomerPhoneNumber": "@items('Apply_to_each_2')?['Customer Phone Number']",
+                      "item/TankVolume": "@items('Apply_to_each_2')?['Tank Volume ']",
+                      "item/SubmissionDate": "@utcNow()"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "PostItem",
+                      "connectionName": "shared_sharepointonline-1"
+                    }
+                  }
+                },
+                "Create_item_-_WhatsApp_Log": {
+                  "runAfter": {
+                    "Create_item_-_Oil_Delivery": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "3bc5dc10-15a8-4a2d-a977-cd8d4b448be6"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "https://prepaypower.sharepoint.com/sites/Omni-ChannelToolIntegration",
+                      "table": "f5989d9f-500d-426e-817e-9a3ae92424b8",
+                      "item/CustomerName": "@{items('Apply_to_each_2')?['Customer First Name']} @{items('Apply_to_each_2')?['Customer Last Name']}",
+                      "item/CRN": "@items('Apply_to_each_2')?['Customer CRN']",
+                      "item/MobileNumber": "@if(\r\n  startsWith(item()['Customer Phone Number'], '353'), \r\n  item()['Customer Phone Number'],\r\n  concat('353', item()['Customer Phone Number'])\r\n)",
+                      "item/Template": "WhatsApp_oil",
+                      "item/Status/Value": "New",
+                      "item/OriginalItemId": "@outputs('Create_item_-_Oil_Delivery')?['body/ID']"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "PostItem",
+                      "connectionName": "shared_sharepointonline-1"
+                    }
+                  }
+                },
+                "Condition_-_isInDevelopment_2": {
+                  "actions": {},
+                  "runAfter": {
+                    "Create_item_-_WhatsApp_Log": [
+                      "Succeeded"
+                    ]
+                  },
+                  "else": {
+                    "actions": {
+                      "Delete_a_row": {
+                        "metadata": {
+                          "014BJ62TZ6425STXUJHZAY5HWVJQ3EIV7V": "/Oil Refills/Gross Churn Reduction Iniatitives/Auto-Refills/SMS Refills.xlsx",
+                          "operationMetadataId": "11143faf-966d-4e06-b85c-fb03dd719f11",
+                          "tableId": "{41CF0904-C379-4324-9917-776D3B02EFFD}",
+                          "017FGUGAWAJSLHXP3CMNGJTWNQ3PKIZLH4": "/Oil.xlsx"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "source": "sites/prepaypower.sharepoint.com,1517afe3-df2a-4ece-9f7a-32c69fdbb0a7,af947b3f-265a-4e06-ab2a-700379b82c0e",
+                            "drive": "b!468XFSrfzk6fejLGn9uwpz97lK9aJgZOqypwA3m4LA6ka6Pf14-9R4-zKCjKPPCs",
+                            "file": "014BJ62TZ6425STXUJHZAY5HWVJQ3EIV7V",
+                            "table": "{41CF0904-C379-4324-9917-776D3B02EFFD}",
+                            "idColumn": "Customer CRN",
+                            "id": "@outputs('Create_item_-_Oil_Delivery')?['body/CustomerCRN']"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                            "operationId": "DeleteItem",
+                            "connectionName": "shared_excelonlinebusiness_1"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@parameters('isInDevelopment (dta_isInDevelopment)')",
+                          true
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                }
+              },
+              "metadata": {
+                "operationMetadataId": "172e71cc-68e1-4d5a-9f8f-d4a0b54ce42a"
+              },
+              "type": "Foreach"
+            }
+          },
+          "runAfter": {
+            "Delay_-_Wait_to_avoid_delete_items_before_creating_list": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "ddc57e51-914b-4838-8973-313d17bb41b8"
+          },
+          "type": "Scope"
+        },
+        "Trigger_WhatsApp_Template": {
+          "actions": {
+            "HTTP_-_GET_TOKEN": {
+              "metadata": {
+                "operationMetadataId": "97b56701-b0a9-4e21-a22a-d42a0342a444"
+              },
+              "type": "Http",
+              "inputs": {
+                "uri": "https://lo.sentinel.liveperson.net/sentinel/api/account/644555/app/token",
+                "method": "POST",
+                "headers": {
+                  "Content-Type": "application/x-www-form-urlencoded"
+                },
+                "body": "v=1.0&grant_type=client_credentials&client_id=401d7661-6755-427f-ad97-edaed807846f&client_secret=4am95tsbdt03vi4jol5r5noqjg"
+              },
+              "runtimeConfiguration": {
+                "contentTransfer": {
+                  "transferMode": "Chunked"
+                }
+              }
+            },
+            "Parse_JSON_-_TOKEN_DETAILS": {
+              "runAfter": {
+                "HTTP_-_GET_TOKEN": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "2565bdd3-4a6a-4356-b775-08f6f45d3ad9"
+              },
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@body('HTTP_-_GET_TOKEN')",
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "access_token": {
+                      "type": "string"
+                    },
+                    "token_type": {
+                      "type": "string"
+                    },
+                    "expires_in": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "HTTP_-_TRIGGER_WA_TEMPLATE": {
+              "runAfter": {
+                "Parse_JSON_-_TOKEN_DETAILS": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "34010958-e528-4a05-bb45-1a7bd15102fd"
+              },
+              "type": "Http",
+              "inputs": {
+                "uri": "https://proactive-messaging.z2.fs.liveperson.com/api/v2/account/644555/campaign",
+                "method": "POST",
+                "headers": {
+                  "Authorization": "Bearer @{body('Parse_JSON_-_TOKEN_DETAILS')?['access_token']}",
+                  "Content-Type": "application/json"
+                },
+                "body": {
+                  "campaignName": "Confirm_Oil_Delivery",
+                  "skill": "WhatsApp_oil",
+                  "templateId": "H326370362391792",
+                  "consent": true,
+                  "consumers": "@body('Select_-_Create_Customers_List_for_WA_Template')"
+                }
+              },
+              "runtimeConfiguration": {
+                "contentTransfer": {
+                  "transferMode": "Chunked"
+                }
+              }
+            },
+            "Parse_JSON_-_WA_TEMPLATE_Response_": {
+              "runAfter": {
+                "HTTP_-_TRIGGER_WA_TEMPLATE": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "2565bdd3-4a6a-4356-b775-08f6f45d3ad9"
+              },
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@body('HTTP_-_TRIGGER_WA_TEMPLATE')",
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "proactiveCampaignId": {
+                      "type": "string"
+                    },
+                    "leCampaignId": {
+                      "type": "string"
+                    },
+                    "leEngagementId": {
+                      "type": "string"
+                    },
+                    "requestTraceId": {
+                      "type": "string"
+                    },
+                    "failedConsumers": {
+                      "type": "array"
+                    },
+                    "acceptedConsumers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "phoneNumber": {
+                            "type": "string"
+                          },
+                          "consumerContent": {
+                            "type": "object",
+                            "properties": {
+                              "wa": {
+                                "type": "string"
+                              },
+                              "sms": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "Get_Fallback_List": {
+              "runAfter": {
+                "Parse_JSON_-_WA_TEMPLATE_Response_": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "6b582447-b424-4657-9ee9-3ab36f042098"
+              },
+              "type": "Workflow",
+              "inputs": {
+                "host": {
+                  "workflowReferenceName": "96cba4e0-b15c-f011-bec1-7c1e52fba4ce"
+                },
+                "body": {
+                  "text": "H326370362391792",
+                  "text_1": "@body('Parse_JSON_-_WA_TEMPLATE_Response_')?['proactiveCampaignId']",
+                  "text_2": "@concat('https://make.powerautomate.com/environments/',\r\noutputs('Workflow')['tags']['environmentName'],\r\n'/flows/',\r\noutputs('Workflow')['name'],\r\n'/runs/',\r\noutputs('Workflow')['run']['name'])"
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Create_Report_-_Clear_Current_Excel": [
+              "Succeeded",
+              "Skipped",
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "440142dc-44e0-423a-bc65-cc1373434b17"
+          },
+          "type": "Scope"
+        },
+        "Delay_-_Wait_to_avoid_delete_items_before_creating_list": {
+          "runAfter": {
+            "Scope_-_Prepare_Data": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "ce4e42b4-5456-4ac7-9962-888bf301ef41"
+          },
+          "type": "Wait",
+          "inputs": {
+            "interval": {
+              "count": 1,
+              "unit": "Minute"
+            }
+          }
+        },
+        "Fallback_Handler": {
+          "actions": {
+            "Parse_JSON_-_Fallback_List": {
+              "metadata": {
+                "operationMetadataId": "3eff9102-95ac-4bcb-a549-cb1e3775012a"
+              },
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@body('Get_Fallback_List')?['response']",
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "channel": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "skill": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "source": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "transactionId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "attemptedTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "cancelledTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "conversationId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "conversationsClosedTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "conversationsCreatedTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "consumerId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "deliveredTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "eligibleTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "errorCode": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "errorMessage": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "errorSource": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "failedTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "inviteTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "optInsTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "optOutsTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "proactiveCampaignId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "readTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "sentTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "initialSkill": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "initialChannel": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "handOffId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "ivrNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "skippedTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "messageStatus": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "Apply_to_each": {
+              "foreach": "@body('Parse_JSON_-_Fallback_List')",
+              "actions": {
+                "Condition_-_WA_Message_FAILED": {
+                  "actions": {
+                    "Fallback_-_Customer_Phone": {
+                      "metadata": {
+                        "operationMetadataId": "1c87b754-218b-4e52-b546-09c5c0686b02"
+                      },
+                      "type": "Compose",
+                      "inputs": "@items('Apply_to_each')?['consumerId']"
+                    },
+                    "Filter_Customer_Details_List": {
+                      "runAfter": {
+                        "Fallback_-_Customer_Phone": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "operationMetadataId": "46459802-5c27-4b6e-a7c2-2bc52e2a2fa9"
+                      },
+                      "type": "Query",
+                      "inputs": {
+                        "from": "@body('Select_-_Create_Fallback_List_with_Customer_Details')",
+                        "where": "@equals(concat('+', item()['sms']),outputs('Fallback_-_Customer_Phone'))"
+                      }
+                    },
+                    "POST_-_Send_SMS_Message": {
+                      "runAfter": {
+                        "Filter_Customer_Details_List": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "body/destination": "@body('Filter_Customer_Details_List')[0]['sms']",
+                          "body/source": "PrepayPower",
+                          "body/clientMessageId": "Oil Delivery - Fallback SMS",
+                          "body/text": "Hi @{body('Filter_Customer_Details_List')[0]['CustomerName']}, PrepayPower Oil here! Your oil tank is running low and is currently at @{body('Filter_Customer_Details_List')[0]['TankVolume']} full. Your Delivery date is currently booked for the @{body('Filter_Customer_Details_List')[0]['OfferedDate']} Please let us know if this date suits you or not by clicking here: www.prepaypower.ie/oil-delivery?crn=@{body('Filter_Customer_Details_List')[0]['CustomerCRN']} Please submit response by 2pm to secure this delivery date. Thanks, PrepayPower Oil\n"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_dta-5f8x8-20sms-5f19cf3490887ebbe4",
+                          "operationId": "POST",
+                          "connectionName": "shared_dta-5f8x8-20sms-5f19cf3490887ebbe4"
+                        }
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {}
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@items('Apply_to_each')?['messageStatus']",
+                          "FAILED"
+                        ]
+                      }
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "ace0725a-35cd-4aa2-a241-e4d234f68213"
+                  },
+                  "type": "If"
+                }
+              },
+              "runAfter": {
+                "Parse_JSON_-_Fallback_List": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "b3218f5d-d96d-498f-a0c3-fdb2513f9cde"
+              },
+              "type": "Foreach"
+            }
+          },
+          "runAfter": {
+            "Trigger_WhatsApp_Template": [
+              "Succeeded",
+              "Skipped"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "5a588638-3485-4f23-a87d-668d2776fb0c"
+          },
+          "type": "Scope"
+        },
+        "Workflow": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "2dff90fa-e791-421d-8f8b-cd4f227e3639"
+          },
+          "type": "Compose",
+          "inputs": "@workflow()"
+        },
+        "Scope_-_Prepare_Data": {
+          "actions": {
+            "Parse_JSON__-_List_of_Items": {
+              "metadata": {
+                "operationMetadataId": "44faada8-beb2-4e6f-b7b9-f9bf90ab83a1"
+              },
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@variables('List of Items')",
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "@@odata.etag": {
+                        "type": "string"
+                      },
+                      "ItemInternalId": {
+                        "type": "string"
+                      },
+                      "Submission Date": {
+                        "type": "string"
+                      },
+                      "Status": {
+                        "type": "string"
+                      },
+                      "Customer First Name": {
+                        "type": "string"
+                      },
+                      "Customer Last Name": {
+                        "type": "string"
+                      },
+                      "Customer CRN": {
+                        "type": "string"
+                      },
+                      "Date of Delivery": {
+                        "type": "string"
+                      },
+                      "Customer Phone Number": {
+                        "type": "string"
+                      },
+                      "Tank Volume ": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "@@odata.etag",
+                      "ItemInternalId",
+                      "Submission Date",
+                      "Status",
+                      "Customer First Name",
+                      "Customer Last Name",
+                      "Customer CRN",
+                      "Date of Delivery",
+                      "Customer Phone Number",
+                      "Tank Volume "
+                    ]
+                  }
+                }
+              }
+            },
+            "Select_-_Create_Customers_List_for_WA_Template": {
+              "runAfter": {
+                "Select_-_Create_Fallback_List_with_Customer_Details": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "f6be3543-0022-41ec-9f36-a51c62bc88fe"
+              },
+              "type": "Select",
+              "inputs": {
+                "from": "@body('Parse_JSON__-_List_of_Items')",
+                "select": {
+                  "consumerContent": {
+                    "wa": "@if(\n  startsWith(item()['Customer Phone Number'], '353'), \n  item()['Customer Phone Number'],\n  concat('353', item()['Customer Phone Number'])\n)",
+                    "sms": "@if(\n  startsWith(item()['Customer Phone Number'], '353'), \n  item()['Customer Phone Number'],\n  concat('353', item()['Customer Phone Number'])\n)"
+                  },
+                  "variables": {
+                    "1": "@item()['Customer First Name']",
+                    "2": "@if(\n  contains(string(item()['Tank Volume ']), '%'),\n  item()['Tank Volume '],\n  if(\n    less(float(item()['Tank Volume ']), 1),\n    concat(string(mul(float(item()['Tank Volume ']), 100)), '%'),\n    concat(string(item()['Tank Volume ']), '%')\n  )\n)\n",
+                    "3": "@formatDateTime(\n  item()['Date of Delivery'], \n  'dd/MM/yyyy'\n)"
+                  }
+                }
+              }
+            },
+            "Select_-_Create_Fallback_List_with_Customer_Details": {
+              "runAfter": {
+                "Parse_JSON__-_List_of_Items": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "f6be3543-0022-41ec-9f36-a51c62bc88fe"
+              },
+              "type": "Select",
+              "inputs": {
+                "from": "@body('Parse_JSON__-_List_of_Items')",
+                "select": {
+                  "wa": "@if(\n  startsWith(item()['Customer Phone Number'], '353'), \n  item()['Customer Phone Number'],\n  concat('353', item()['Customer Phone Number'])\n)",
+                  "sms": "@if(\n  startsWith(item()['Customer Phone Number'], '353'), \n  item()['Customer Phone Number'],\n  concat('353', item()['Customer Phone Number'])\n)",
+                  "CustomerName": "@item()['Customer First Name']",
+                  "TankVolume": "@if(\r\n  contains(string(item()['Tank Volume ']), '%'),\r\n  item()['Tank Volume '],\r\n  if(\r\n    less(float(item()['Tank Volume ']), 1),\r\n    concat(string(mul(float(item()['Tank Volume ']), 100)), '%'),\r\n    concat(string(item()['Tank Volume ']), '%')\r\n  )\r\n)",
+                  "OfferedDate": "@formatDateTime(\r\n  item()['Date of Delivery'], \r\n  'dd/MM/yyyy'\r\n)",
+                  "CustomerCRN": "@item()['Customer CRN']"
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Condition_-_Is_In_Development": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "08719117-9654-4fa8-a377-68788602a2af"
+          },
+          "type": "Scope"
+        },
+        "Condition_-_Is_In_Development": {
+          "actions": {
+            "Set_variable__DEVELOPMENT_ENVIRONMENT": {
+              "runAfter": {
+                "List_rows_present_in_a_table_-_DEVELOPMENT_ENVIRONMENT": [
+                  "Succeeded"
+                ]
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "List of Items",
+                "value": "@outputs('List_rows_present_in_a_table_-_DEVELOPMENT_ENVIRONMENT')?['body/value']"
+              }
+            },
+            "List_rows_present_in_a_table_-_DEVELOPMENT_ENVIRONMENT": {
+              "metadata": {
+                "017FGUGAWAJSLHXP3CMNGJTWNQ3PKIZLH4": "/Oil.xlsx",
+                "tableId": "{CC9B7335-C017-484F-8E26-080D03D2897A}",
+                "operationMetadataId": "e2b649c5-2981-43b3-bd8e-d225d693f3c7",
+                "014BJ62TZ6425STXUJHZAY5HWVJQ3EIV7V": "/Oil Refills/Gross Churn Reduction Iniatitives/Auto-Refills/SMS Refills.xlsx"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "source": "sites/prepaypower.sharepoint.com,7259474f-5cee-4b9a-bd5c-72eb5f67c4c3,5c5bdf71-1eb5-4fc4-8bc7-b0be30dd749c",
+                  "drive": "b!T0dZcu5cmku9XHLrX2fEw3HfW1y1HsRPi8ewvjDddJz_C-523x6pQatS6n0qDWDx",
+                  "file": "017FGUGAWAJSLHXP3CMNGJTWNQ3PKIZLH4",
+                  "table": "{CC9B7335-C017-484F-8E26-080D03D2897A}",
+                  "dateTimeFormat": "ISO 8601"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                  "operationId": "GetItems",
+                  "connectionName": "shared_excelonlinebusiness_1"
+                }
+              },
+              "runtimeConfiguration": {
+                "paginationPolicy": {
+                  "minimumItemCount": 100000
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Initialize_variable_-_List_of_Items": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {
+              "List_rows_present_in_a_table_-_PRODUCTION": {
+                "metadata": {
+                  "017FGUGAWAJSLHXP3CMNGJTWNQ3PKIZLH4": "/Oil.xlsx",
+                  "tableId": "{41CF0904-C379-4324-9917-776D3B02EFFD}",
+                  "operationMetadataId": "e2b649c5-2981-43b3-bd8e-d225d693f3c7",
+                  "014BJ62TZ6425STXUJHZAY5HWVJQ3EIV7V": "/Oil Refills/Gross Churn Reduction Iniatitives/Auto-Refills/SMS Refills.xlsx"
+                },
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "source": "sites/prepaypower.sharepoint.com,1517afe3-df2a-4ece-9f7a-32c69fdbb0a7,af947b3f-265a-4e06-ab2a-700379b82c0e",
+                    "drive": "b!468XFSrfzk6fejLGn9uwpz97lK9aJgZOqypwA3m4LA6ka6Pf14-9R4-zKCjKPPCs",
+                    "file": "014BJ62TZ6425STXUJHZAY5HWVJQ3EIV7V",
+                    "table": "{41CF0904-C379-4324-9917-776D3B02EFFD}",
+                    "dateTimeFormat": "ISO 8601"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                    "operationId": "GetItems",
+                    "connectionName": "shared_excelonlinebusiness_1"
+                  }
+                },
+                "runtimeConfiguration": {
+                  "paginationPolicy": {
+                    "minimumItemCount": 100000
+                  }
+                }
+              },
+              "Set_variable_PRODUCTION": {
+                "runAfter": {
+                  "List_rows_present_in_a_table_-_PRODUCTION": [
+                    "Succeeded"
+                  ]
+                },
+                "type": "SetVariable",
+                "inputs": {
+                  "name": "List of Items",
+                  "value": "@outputs('List_rows_present_in_a_table_-_PRODUCTION')?['body/value']"
+                }
+              }
+            }
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@parameters('isInDevelopment (dta_isInDevelopment)')",
+                  true
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        },
+        "Compose_-_isInDevelopment": {
+          "runAfter": {
+            "Workflow": [
+              "Succeeded"
+            ]
+          },
+          "type": "Compose",
+          "inputs": "@parameters('isInDevelopment (dta_isInDevelopment)')"
+        },
+        "Initialize_variable_-_List_of_Items": {
+          "runAfter": {
+            "Compose_-_isInDevelopment": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "0995582c-aace-44e7-8b94-1b52ab27c08f"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "List of Items",
+                "type": "array"
+              }
+            ]
+          }
+        },
+        "Send_an_email_from_a_shared_mailbox_(V2)": {
+          "runAfter": {
+            "Fallback_Handler": [
+              "Failed",
+              "Skipped"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "emailMessage/MailboxAddress": "digital.transformation@prepaypower.ie",
+              "emailMessage/To": "dxteam@prepaypower.ie",
+              "emailMessage/Subject": "WhatsApp - Liverpeson - Send Oil Refil Template - Failed",
+              "emailMessage/Body": "<p class=\"editor-paragraph\">WhatsApp - Liverpeson - Send Oil Refil Template - Failed<br><br>@{concat('https://make.powerautomate.com/environments/',\r\noutputs('Workflow')['tags']['environmentName'],\r\n'/flows/',\r\noutputs('Workflow')['name'],\r\n'/runs/',\r\noutputs('Workflow')['run']['name'])}</p><br>",
+              "emailMessage/Importance": "Normal"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+              "operationId": "SharedMailboxSendEmailV2",
+              "connectionName": "shared_office365"
+            }
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

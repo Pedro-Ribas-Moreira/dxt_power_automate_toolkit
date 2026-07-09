@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Connector xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <connectorid>f4fbaf41-65a2-4e84-b186-ad8a781fc247</connectorid>
+  <description>Sending SMS using 8x8 SMS API
+
+https://developer.8x8.com/connect/reference/getting-started-with-sms-api</description>
+  <displayname>8X8 SMS</displayname>
+  <iconbrandcolor>#007ee5</iconbrandcolor>
+  <name>dta_5F8x8-20sms</name>
+  <connectortype>1</connectortype>
+  <openapidefinition>/Connector/dta_5F8x8-20sms_openapidefinition.json</openapidefinition>
+  <connectionparameters>/Connector/dta_5F8x8-20sms_connectionparameters.json</connectionparameters>
+  <policytemplateinstances>/Connector/dta_5F8x8-20sms_policytemplateinstances.json</policytemplateinstances>
+  <iconblob>/Connector/dta_5F8x8-20sms_iconblob.Png</iconblob>
+</Connector>

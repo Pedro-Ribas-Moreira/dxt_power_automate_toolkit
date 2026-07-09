@@ -1,0 +1,279 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_powerbi": {
+        "api": {
+          "name": "shared_powerbi"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "dta_sharedpowerbi_92243"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "dta_sharedsharepointonline_698f0"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_office365-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "dta_Outlook"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "type": "Recurrence",
+          "recurrence": {
+            "frequency": "Day",
+            "interval": 1,
+            "startTime": "2026-07-06T09:00:00Z"
+          },
+          "metadata": {
+            "operationMetadataId": "02d971a6-d6e9-4227-9fa6-ea03180c06b3"
+          }
+        }
+      },
+      "actions": {
+        "Try": {
+          "type": "Scope",
+          "actions": {
+            "Run_a_query_against_a_dataset": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "groupid": "c308ec0c-defe-4fef-8ae2-d0eb7d1a3ee0",
+                  "datasetid": "15c334db-0c75-4028-958b-e6a44af3cfb5",
+                  "specification/query": "// DAX Query\nDEFINE\n\tVAR __DS0FilterTable = \n\t\tTREATAS({\"Not Delivered\"}, 'Oil Delivery'[DeliveryStatus])\n\n\tVAR __DS0FilterTable2 = \n\t\tTREATAS({\"Not Confirmed\"}, 'Oil Delivery'[OrderStatus])\n\n\tVAR __DS0FilterTable3 = \n\t\tTREATAS({\"COT\",\n\t\t\t\"Billed\"}, 'Oil Delivery'[Status])\n\n\tVAR __DS0Core = \n\t\tCALCULATETABLE(\n\t\t\tSUMMARIZE(\n\t\t\t\t'Oil Delivery',\n\t\t\t\t'Oil Delivery'[Address],\n\t\t\t\t'Oil Delivery'[DeliveryDate],\n\t\t\t\t'Oil Delivery'[DeliveryNote],\n\t\t\t\t'Oil Delivery'[DeliveryStatus],\n\t\t\t\t'Oil Delivery'[Distributor],\n\t\t\t\t'Oil Delivery'[Eircode],\n\t\t\t\t'Oil Delivery'[FillRestriction],\n\t\t\t\t'Oil Delivery'[FuelType],\n\t\t\t\t'Oil Delivery'[LatestVolumePercent],\n\t\t\t\t'Oil Delivery'[Mobile],\n\t\t\t\t'Oil Delivery'[MPRN],\n\t\t\t\t'Oil Delivery'[LatestVolumeReading],\n\t\t\t\t'Oil Delivery'[Name],\n\t\t\t\t'Oil Delivery'[OrderStatus],\n\t\t\t\t'Oil Delivery'[PropertyType],\n\t\t\t\t'Oil Delivery'[Status],\n\t\t\t\t'Oil Delivery'[SubmitDate],\n\t\t\t\t'Oil Delivery'[TankID],\n\t\t\t\t'Oil Delivery'[AssignedAgent],\n\t\t\t\t'Oil Delivery'[Capacity],\n\t\t\t\t'Oil Delivery'[ContactStrikes],\n\t\t\t\t'Oil Delivery'[CRN],\n\t\t\t\t'Oil Delivery'[ID],\n\t\t\t\t'Oil Delivery'[TotalCount],\n\t\t\t\t'Oil Delivery'[Volume]\n\t\t\t),\n\t\t\tKEEPFILTERS(__DS0FilterTable),\n\t\t\tKEEPFILTERS(__DS0FilterTable2),\n\t\t\tKEEPFILTERS(__DS0FilterTable3)\n\t\t)\n\n\nEVALUATE\n\t__DS0Core \n\nORDER BY\n\t'Oil Delivery'[DeliveryDate],\n\t'Oil Delivery'[Address],\n\t'Oil Delivery'[DeliveryNote],\n\t'Oil Delivery'[DeliveryStatus],\n\t'Oil Delivery'[Distributor],\n\t'Oil Delivery'[Eircode],\n\t'Oil Delivery'[FillRestriction],\n\t'Oil Delivery'[FuelType],\n\t'Oil Delivery'[LatestVolumePercent],\n\t'Oil Delivery'[Mobile],\n\t'Oil Delivery'[MPRN],\n\t'Oil Delivery'[LatestVolumeReading],\n\t'Oil Delivery'[Name],\n\t'Oil Delivery'[OrderStatus],\n\t'Oil Delivery'[PropertyType],\n\t'Oil Delivery'[Status],\n\t'Oil Delivery'[SubmitDate],\n\t'Oil Delivery'[TankID],\n\t'Oil Delivery'[AssignedAgent],\n\t'Oil Delivery'[Capacity],\n\t'Oil Delivery'[ContactStrikes],\n\t'Oil Delivery'[CRN],\n\t'Oil Delivery'[ID],\n\t'Oil Delivery'[TotalCount],\n\t'Oil Delivery'[Volume]\n",
+                  "specification/serializerSettings/includeNulls": false
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_powerbi",
+                  "operationId": "ExecuteDatasetQuery",
+                  "connectionName": "shared_powerbi"
+                }
+              },
+              "runAfter": {}
+            },
+            "Compose": {
+              "type": "Compose",
+              "inputs": "@outputs('Run_a_query_against_a_dataset')?['body/firstTableRows']",
+              "runAfter": {
+                "Run_a_query_against_a_dataset": [
+                  "SUCCEEDED"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "1444c292-64bc-433b-9435-fb40ed394193"
+              }
+            },
+            "Create_CSV_table": {
+              "type": "Table",
+              "inputs": {
+                "from": "@outputs('Compose')",
+                "format": "CSV",
+                "columns": [
+                  {
+                    "header": "Address",
+                    "value": "@item()?['Oil Delivery[Address]']"
+                  },
+                  {
+                    "header": "DeliveryDate",
+                    "value": "@item()?['Oil Delivery[DeliveryDate]']"
+                  },
+                  {
+                    "header": "DeliveryNote",
+                    "value": "@item()?['Oil Delivery[DeliveryNote]']"
+                  },
+                  {
+                    "header": "DeliveryStatus",
+                    "value": "@item()?['Oil Delivery[DeliveryStatus]']"
+                  },
+                  {
+                    "header": "Distributor",
+                    "value": "@item()?['Oil Delivery[Distributor]']"
+                  },
+                  {
+                    "header": "Eircode",
+                    "value": "@item()?['Oil Delivery[Eircode]']"
+                  },
+                  {
+                    "header": "FillRestriction",
+                    "value": "@item()?['Oil Delivery[FillRestriction]']"
+                  },
+                  {
+                    "header": "FuelType",
+                    "value": "@item()?['Oil Delivery[FuelType]']"
+                  },
+                  {
+                    "header": "LatestVolumePercent",
+                    "value": "@item()?['Oil Delivery[LatestVolumePercent]']"
+                  },
+                  {
+                    "header": "Mobile",
+                    "value": "@item()?['Oil Delivery[Mobile]']"
+                  },
+                  {
+                    "header": "MPRN",
+                    "value": "@item()?['Oil Delivery[MPRN]']"
+                  },
+                  {
+                    "header": "LatestVolumeReading",
+                    "value": "@item()?['Oil Delivery[LatestVolumeReading]']"
+                  },
+                  {
+                    "header": "Name",
+                    "value": "@item()?['Oil Delivery[Name]']"
+                  },
+                  {
+                    "header": "OrderStatus",
+                    "value": "@item()?['Oil Delivery[OrderStatus]']"
+                  },
+                  {
+                    "header": "PropertyType",
+                    "value": "@item()?['Oil Delivery[PropertyType]']"
+                  },
+                  {
+                    "header": "Status",
+                    "value": "@item()?['Oil Delivery[Status]']"
+                  },
+                  {
+                    "header": "SubmitDate",
+                    "value": "@item()?['Oil Delivery[SubmitDate]']"
+                  },
+                  {
+                    "header": "TankID",
+                    "value": "@item()?['Oil Delivery[TankID]']"
+                  },
+                  {
+                    "header": "AssignedAgent",
+                    "value": "@item()?['Oil Delivery[AssignedAgent]']"
+                  },
+                  {
+                    "header": "Capacity",
+                    "value": "@item()?['Oil Delivery[Capacity]']"
+                  },
+                  {
+                    "header": "ContactStrikes",
+                    "value": "@item()?['Oil Delivery[ContactStrikes]']"
+                  },
+                  {
+                    "header": "CRN",
+                    "value": "@item()?['Oil Delivery[CRN]']"
+                  },
+                  {
+                    "header": "ID",
+                    "value": "@item()?['Oil Delivery[ID]']"
+                  },
+                  {
+                    "header": "TotalCount",
+                    "value": "@item()?['Oil Delivery[TotalCount]']"
+                  },
+                  {
+                    "header": "Volume",
+                    "value": "@item()?['Oil Delivery[Volume]']"
+                  }
+                ]
+              },
+              "runAfter": {
+                "Compose": [
+                  "SUCCEEDED"
+                ]
+              }
+            },
+            "Create_file": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "https://prepaypower.sharepoint.com/sites/PPP-RetentionTeam",
+                  "folderPath": "/Documents All/DT - Oil Delivery - Test",
+                  "name": "Oil Delivery - @{formatDateTime(convertFromUtc(utcNow(),'GMT Standard Time'),'yyyy-MM-dd')}.csv",
+                  "body": "@body('Create_CSV_table')"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "CreateFile",
+                  "connectionName": "shared_sharepointonline"
+                }
+              },
+              "runAfter": {
+                "Create_CSV_table": [
+                  "SUCCEEDED"
+                ]
+              }
+            }
+          },
+          "runAfter": {}
+        },
+        "Catch": {
+          "type": "Scope",
+          "actions": {
+            "Send_an_email_from_a_shared_mailbox_(V2)": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "emailMessage/MailboxAddress": "digital.transformation@prepaypower.ie",
+                  "emailMessage/To": "Pedro.Moreira@prepaypower.ie",
+                  "emailMessage/Subject": "Flow Failed: PPP Oil Retention - Oil Delivery - Get Data from Power BI",
+                  "emailMessage/Body": "<p>The scheduled flow <strong>@{workflow().tags.flowDisplayName}</strong> has failed.</p><p><strong>Failed action:</strong> @{coalesce(result('Try')?[0]?['name'], 'Unknown')}</p><p><strong>Error:</strong> @{coalesce(result('Try')?[0]?['error']?['message'], 'See run history for details.')}</p><p><a href=\"@{concat('https://make.powerautomate.com/environments/', workflow().tags.environmentName, '/flows/', workflow().name, '/runs/', workflow().run.name)}\">View run history</a></p>",
+                  "emailMessage/Importance": "High"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                  "operationId": "SharedMailboxSendEmailV2",
+                  "connectionName": "shared_office365-1"
+                }
+              },
+              "runAfter": {}
+            },
+            "Terminate": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "OilDeliveryExportFailed",
+                  "message": "@{coalesce(result('Try')?[0]?['error']?['message'], 'Oil Delivery Power BI export flow failed - see run history for details.')}"
+                }
+              },
+              "runAfter": {
+                "Send_an_email_from_a_shared_mailbox_(V2)": [
+                  "SUCCEEDED"
+                ]
+              }
+            }
+          },
+          "runAfter": {
+            "Try": [
+              "FAILED",
+              "TIMEDOUT",
+              "SKIPPED"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

@@ -17,11 +17,78 @@ export interface InternalSystem {
   description: string;
 }
 
+// ── Team / workflow sections ─────────────────────────────────────────────────
+// These sections live in the on-disk company-context.json (richer than the
+// getDefaultContext() seed) and are consumed by libraryBuilder's CLAUDE.md
+// company section and by the Asana integration (asanaWorkflow GIDs).
+
+export interface AsanaWorkflowConfig {
+  workspace?: string;
+  workspaceGid?: string;
+  mainProject?: string;
+  mainProjectGid?: string;
+  sections?: Record<string, string>;
+  userGids?: Record<string, string>;
+}
+
+export interface TeamContext {
+  name?: string;
+  manager?: string;
+  members?: string[];
+  specialisation?: string;
+  taskTracking?: string;
+  asanaWorkflow?: AsanaWorkflowConfig;
+  environments?: Record<string, string>;
+  deploymentPipeline?: string;
+  documentationStandard?: string;
+}
+
+export interface BotArchitecture {
+  internalAgentBots?: {
+    platform?: string;
+    channel?: string;
+    note?: string;
+    connectionToPowerAutomate?: string;
+    botSolutions?: string[];
+    commonTopics?: string[];
+  };
+  customerFacingWhatsApp?: {
+    platform?: string;
+    brands?: string[];
+    outbound?: string;
+    inbound?: string;
+    note?: string;
+  };
+  customerFacingChat?: {
+    platform?: string;
+    description?: string;
+  };
+  cognigy?: { note?: string };
+}
+
+export interface FlowConventions {
+  solutionNaming?: string;
+  flowNaming?: string;
+  prefixes?: Record<string, string>;
+  triggerTypes?: string[];
+  errorHandling?: string;
+  connectors?: string[];
+}
+
+export interface DevelopmentWorkflow {
+  process?: string[];
+  bestPractices?: string[];
+}
+
 export interface CompanyContext {
   group: string;
   brands: Brand[];
   internalSystems?: InternalSystem[];
   crossBrandTerms?: Record<string, string>;
+  team?: TeamContext;
+  botArchitecture?: BotArchitecture;
+  flowConventions?: FlowConventions;
+  developmentWorkflow?: DevelopmentWorkflow;
 }
 
 const CONTEXT_FILE = 'company-context.json';

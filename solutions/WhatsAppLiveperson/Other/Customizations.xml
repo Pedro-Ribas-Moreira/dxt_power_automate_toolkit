@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" OrganizationVersion="9.2.26062.155" OrganizationSchemaType="Standard" CRMServerServiceabilityVersion="9.2.26062.00155">
+  <Entities />
+  <Roles />
+  <Workflows />
+  <FieldSecurityProfiles />
+  <Templates />
+  <EntityMaps />
+  <EntityRelationships />
+  <OrganizationSettings />
+  <optionsets />
+  <CustomControls />
+  <EntityDataProviders />
+  <Connectors />
+  <connectionreferences>
+    <connectionreference connectionreferencelogicalname="dta_sharedexcelonlinebusiness_377c4">
+      <connectionreferencedisplayname>Excel Online (Business) WhatsAppLiveperson-377c4</connectionreferencedisplayname>
+      <connectorid>/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness</connectorid>
+      <description>dta_connection_excel</description>
+      <iscustomizable>1</iscustomizable>
+      <promptingbehavior>0</promptingbehavior>
+      <statecode>0</statecode>
+      <statuscode>1</statuscode>
+    </connectionreference>
+    <connectionreference connectionreferencelogicalname="dta_sharedoffice365_47fee">
+      <connectionreferencedisplayname>Office 365 Outlook WhatsAppLiveperson-47fee</connectionreferencedisplayname>
+      <connectorid>/providers/Microsoft.PowerApps/apis/shared_office365</connectorid>
+      <iscustomizable>1</iscustomizable>
+      <promptingbehavior>0</promptingbehavior>
+      <statecode>0</statecode>
+      <statuscode>1</statuscode>
+    </connectionreference>
+    <connectionreference connectionreferencelogicalname="dta_sharedpowerbi_92243">
+      <connectionreferencedisplayname>Power BI WhatsAppLiveperson-92243</connectionreferencedisplayname>
+      <connectorid>/providers/Microsoft.PowerApps/apis/shared_powerbi</connectorid>
+      <iscustomizable>1</iscustomizable>
+      <promptingbehavior>0</promptingbehavior>
+      <statecode>0</statecode>
+      <statuscode>1</statuscode>
+    </connectionreference>
+    <connectionreference connectionreferencelogicalname="dta_sharedsharepointonline_1acb4">
+      <connectionreferencedisplayname>SharePoint PrepayPowerSendBulkSMS-1acb4</connectionreferencedisplayname>
+      <connectorid>/providers/Microsoft.PowerApps/apis/shared_sharepointonline</connectorid>
+      <iscustomizable>1</iscustomizable>
+      <promptingbehavior>0</promptingbehavior>
+      <statecode>0</statecode>
+      <statuscode>1</statuscode>
+    </connectionreference>
+    <connectionreference connectionreferencelogicalname="dta_sharedsharepointonline_b503c">
+      <connectionreferencedisplayname>SharePoint WhatsAppLiveperson-b503c</connectionreferencedisplayname>
+      <connectorid>/providers/Microsoft.PowerApps/apis/shared_sharepointonline</connectorid>
+      <description>dta_connection_sharepoint</description>
+      <iscustomizable>1</iscustomizable>
+      <promptingbehavior>0</promptingbehavior>
+      <statecode>0</statecode>
+      <statuscode>1</statuscode>
+    </connectionreference>
+    <connectionreference connectionreferencelogicalname="new_shareddta5f8x820sms5f19cf3490887ebbe4_78b79">
+      <connectionreferencedisplayname>8X8 SMS</connectionreferencedisplayname>
+      <connectorid>/providers/Microsoft.PowerApps/apis/shared_dta-5f8x8-20sms-5f19cf3490887ebbe4</connectorid>
+      <customconnectorid>
+        <connectorid>f4fbaf41-65a2-4e84-b186-ad8a781fc247</connectorid>
+      </customconnectorid>
+      <iscustomizable>1</iscustomizable>
+      <promptingbehavior>0</promptingbehavior>
+      <statecode>0</statecode>
+      <statuscode>1</statuscode>
+    </connectionreference>
+  </connectionreferences>
+  <Languages>
+    <Language>1033</Language>
+  </Languages>
+</ImportExportXml>

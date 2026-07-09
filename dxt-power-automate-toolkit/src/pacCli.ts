@@ -30,61 +30,96 @@ function generateEnvironmentGuid(solutionsRoot: string): string {
   return `${seg1}-${seg2}-${suffix}`.toUpperCase();
 }
 
-function buildTemplateFlow(flowDisplayName: string, solutionDisplayName: string): object {
+export type TriggerType = 'Manual' | 'HTTP' | 'Scheduled';
+
+// Org-mandated starter flow (mirrors dxt-bridge routes/pac.js): Try scope with
+// a Hello_World Compose, plus a Catch scope (runAfter Try FAILED/TIMEDOUT/
+// SKIPPED) sending an Office 365 error email. Per the org building guide:
+// UPPERCASE runAfter statuses, trigger schema with `required: []`, NO
+// definition-level `metadata.defaultToEmbeddedConnections`.
+function buildTemplateFlow(flowDisplayName: string, trigger: TriggerType, notifyEmail: string): object {
+  let triggers: Record<string, any>;
+  if (trigger === 'HTTP') {
+    triggers = {
+      manual: {
+        type: 'Request',
+        kind: 'Http',
+        inputs: { schema: { type: 'object', properties: {}, required: [] } },
+        metadata: { operationMetadataId: randomUUID() },
+      },
+    };
+  } else if (trigger === 'Scheduled') {
+    triggers = {
+      Recurrence: {
+        type: 'Recurrence',
+        recurrence: { frequency: 'Day', interval: 1 },
+        metadata: { operationMetadataId: randomUUID() },
+      },
+    };
+  } else {
+    triggers = {
+      manual: {
+        type: 'Request',
+        kind: 'Button',
+        inputs: { schema: { type: 'object', properties: {}, required: [] } },
+        metadata: { operationMetadataId: randomUUID() },
+      },
+    };
+  }
+
+  const emailSubj = 'Flow Error: @{workflow().tags.flowDisplayName}';
+  const emailBody = `<p><strong>Flow:</strong> @{workflow().tags.flowDisplayName}<br><strong>Error:</strong> @{actions('Try').error.message}<br><strong>Run:</strong> <a href="@{concat('https://make.powerautomate.com/environments/',workflow().tags.environmentName,'/flows/',workflow().name,'/runs/',workflow().run.name)}">View run</a></p>`;
+
   return {
     properties: {
-      connectionReferences: {},
+      connectionReferences: {
+        shared_office365: { runtimeSource: 'invoker', connection: {}, api: { name: 'shared_office365' } },
+      },
       definition: {
         $schema: 'https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#',
         contentVersion: '1.0.0.0',
-        metadata: { defaultToEmbeddedConnections: true },
         parameters: {
           $authentication: { defaultValue: {}, type: 'SecureObject' },
           $connections: { defaultValue: {}, type: 'Object' },
         },
-        triggers: {
-          manual: {
-            metadata: { operationMetadataId: randomUUID() },
-            type: 'Request',
-            kind: 'Button',
-            inputs: { schema: {} },
-          },
-        },
+        triggers,
         actions: {
           Try: {
-            metadata: { operationMetadataId: randomUUID() },
             type: 'Scope',
             actions: {
-              Solution_Name: {
-                metadata: { operationMetadataId: randomUUID() },
+              Hello_World: {
                 type: 'Compose',
-                inputs: solutionDisplayName,
+                inputs: 'Hello World!',
                 runAfter: {},
+                metadata: { operationMetadataId: randomUUID() },
               },
             },
             runAfter: {},
+            metadata: { operationMetadataId: randomUUID() },
           },
           Catch: {
-            metadata: { operationMetadataId: randomUUID() },
             type: 'Scope',
             actions: {
-              Get_Error_Details: {
-                metadata: { operationMetadataId: randomUUID() },
-                type: 'Query',
+              Send_error_email: {
+                type: 'ApiConnection',
                 inputs: {
-                  from: "@result('Try')",
-                  where: "@equals(item()?['status'], 'Failed')",
+                  host: {
+                    connectionName: 'shared_office365',
+                    operationId: 'SendEmailV2',
+                    apiId: '/providers/Microsoft.PowerApps/apis/shared_office365',
+                  },
+                  parameters: {
+                    'emailMessage/To': notifyEmail,
+                    'emailMessage/Subject': emailSubj,
+                    'emailMessage/Body': emailBody,
+                  },
                 },
                 runAfter: {},
-              },
-              Error_Details: {
                 metadata: { operationMetadataId: randomUUID() },
-                type: 'Compose',
-                inputs: "@first(body('Get_Error_Details'))?['error']?['message']",
-                runAfter: { Get_Error_Details: ['Succeeded'] },
               },
             },
-            runAfter: { Try: ['Failed', 'TimedOut', 'Skipped'] },
+            runAfter: { Try: ['FAILED', 'TIMEDOUT', 'SKIPPED'] },
+            metadata: { operationMetadataId: randomUUID() },
           },
         },
       },
@@ -95,25 +130,36 @@ function buildTemplateFlow(flowDisplayName: string, solutionDisplayName: string)
   };
 }
 
+function resolveNotifyEmail(explicit?: string): string {
+  if (explicit?.trim()) { return explicit.trim(); }
+  const configured = vscode.workspace.getConfiguration('dxt-power-automate').get<string>('errorNotifyEmail')?.trim();
+  return configured || 'Pedro.Moreira@prepaypower.ie';
+}
+
 // Write a template flow into an existing unpacked solution directory.
 // Returns { guid, filePath, fileName, displayName }.
-export function writeTemplateFlow(solutionDir: string, solutionDisplayName: string): { guid: string; filePath: string; fileName: string; displayName: string } {
+export function writeTemplateFlow(
+  solutionDir: string,
+  solutionDisplayName: string,
+  opts?: { trigger?: TriggerType; description?: string; notifyEmail?: string }
+): { guid: string; filePath: string; fileName: string; displayName: string } {
   const workflowsDir = path.join(solutionDir, 'Workflows');
   fs.mkdirSync(workflowsDir, { recursive: true });
 
+  const trigger = opts?.trigger ?? 'Manual';
   const solutionsRoot = path.dirname(solutionDir);
   const flowGuid = generateEnvironmentGuid(solutionsRoot);
-  const displayName = `Template - ${solutionDisplayName}`;
+  const displayName = `${solutionDisplayName} ${trigger} - ${opts?.description?.trim() || 'Starter Flow'}`;
   const safeName = displayName.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
   const fileName = `${safeName}-${flowGuid}.json`;
   const filePath = path.join(workflowsDir, fileName);
 
   fs.writeFileSync(
     filePath,
-    JSON.stringify(buildTemplateFlow(displayName, solutionDisplayName), null, 2),
+    JSON.stringify(buildTemplateFlow(displayName, trigger, resolveNotifyEmail(opts?.notifyEmail)), null, 2),
     'utf8'
   );
-  log.info(`Template flow written: ${filePath}`);
+  log.info(`Template flow written (${trigger}): ${filePath}`);
   return { guid: flowGuid, filePath, fileName, displayName };
 }
 
@@ -139,6 +185,9 @@ async function injectWorkflowIntoZip(zipPath: string, workflowFilePath: string):
 
 // Register a new workflow in both Solution.xml (RootComponent) and customizations.xml (<Workflow> entry).
 // Both are required: Solution.xml links the entity to the solution; customizations.xml creates it.
+// NOTE: this customizations.xml registration is the flat/unpacked-layout equivalent of
+// dxt-bridge's sibling `<flow>.json.data.xml` files — do NOT add a data.xml writer here,
+// pac pack would then see the workflow twice.
 export function addWorkflowComponent(solutionDir: string, flowGuid: string, displayName: string, fileName: string): void {
   const guid = flowGuid.toLowerCase();
 
@@ -161,7 +210,7 @@ export function addWorkflowComponent(solutionDir: string, flowGuid: string, disp
       <Category>5</Category>
       <Mode>0</Mode>
       <Scope>4</Scope>
-      <OnDemand>1</OnDemand>
+      <OnDemand>0</OnDemand>
       <TriggerOnCreate>0</TriggerOnCreate>
       <TriggerOnDelete>0</TriggerOnDelete>
       <AsyncAutomatically>0</AsyncAutomatically>
@@ -174,6 +223,7 @@ export function addWorkflowComponent(solutionDir: string, flowGuid: string, disp
       <IsCustomizable>1</IsCustomizable>
       <BusinessProcessType>0</BusinessProcessType>
       <IsCustomProcessingStepAllowedForOtherPublishers>1</IsCustomProcessingStepAllowedForOtherPublishers>
+      <ModernFlowType>0</ModernFlowType>
       <PrimaryEntity>none</PrimaryEntity>
       <LocalizedNames>
         <LocalizedName languagecode="1033" description="${xmlEsc(displayName)}" />
@@ -384,7 +434,8 @@ export async function createSolution(
   publisherPrefix: string,
   publisherDisplayName: string,
   publisherUniqueName: string,
-  solutionsRoot: string
+  solutionsRoot: string,
+  starter?: { trigger: TriggerType; notifyEmail?: string }
 ): Promise<void> {
   const solutionDir = path.join(solutionsRoot, uniqueName);
   const otherDir = path.join(solutionDir, 'Other');
@@ -394,6 +445,11 @@ export async function createSolution(
   log.info(`Solution.xml:\n${xml}`);
   fs.writeFileSync(path.join(otherDir, 'Solution.xml'), xml, 'utf8');
   fs.writeFileSync(path.join(otherDir, 'customizations.xml'), CUSTOMIZATIONS_XML, 'utf8');
+
+  if (starter) {
+    const flow = writeTemplateFlow(solutionDir, displayName, { trigger: starter.trigger, notifyEmail: starter.notifyEmail });
+    addWorkflowComponent(solutionDir, flow.guid, flow.displayName, flow.fileName);
+  }
 
   const zipPath = path.join(solutionsRoot, `${uniqueName}_new.zip`);
   await runPac(['solution', 'pack', '--zipFile', zipPath, '--folder', solutionDir]);

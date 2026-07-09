@@ -1,0 +1,102 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "dta_sharedsharepointonline_1acb4"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "undefined",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "type": "Recurrence",
+          "recurrence": {
+            "frequency": "Month",
+            "interval": "1",
+            "startTime": "2026-05-01T09:00:00Z"
+          }
+        }
+      },
+      "actions": {
+        "Compose": {
+          "type": "Compose",
+          "inputs": "tes",
+          "runAfter": {
+            "Get_items": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Condition_-_Is_In_Development": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  1,
+                  true
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Terminate": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Cancelled"
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          },
+          "runAfter": {}
+        },
+        "Get_items": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://prepaypower.sharepoint.com",
+              "table": "9d2dd0ee-7858-4b1e-aee9-f246bf6bb88a",
+              "$filter": "Created lt '@{startOfDay(addDays(utcNow(), -30))}'"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItems",
+              "connectionName": "shared_sharepointonline"
+            }
+          },
+          "runAfter": {
+            "Condition_-_Is_In_Development": [
+              "Succeeded"
+            ]
+          },
+          "runtimeConfiguration": {
+            "paginationPolicy": {
+              "minimumItemCount": 100000
+            }
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

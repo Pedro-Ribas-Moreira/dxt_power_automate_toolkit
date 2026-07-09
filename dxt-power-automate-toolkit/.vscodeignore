@@ -15,3 +15,11 @@ vsc-extension-quickstart.md
 .claude/**
 sharepoint-context.json
 *.vsix
+
+# Workspace data — the extension reads these from the WORKSPACE at runtime,
+# not from the extension install dir. Never ship org data inside the VSIX.
+solutions/**
+company-context.json
+DXT_CLOUD_INDEX.md
+CLAUDE.md
+asana-links.json

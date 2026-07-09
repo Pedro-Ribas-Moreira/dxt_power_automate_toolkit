@@ -1,0 +1,14 @@
+<environmentvariabledefinition schemaname="dta_isInDevelopment">
+  <defaultvalue>yes</defaultvalue>
+  <description default="check if the solution is in an development or production environment.">
+    <label description="check if the solution is in an development or production environment." languagecode="1033" />
+  </description>
+  <displayname default="isInDevelopment">
+    <label description="isInDevelopment" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000002</type>
+</environmentvariabledefinition>

@@ -2,11 +2,12 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { PowerAutomateTreeProvider, PowerAutomateNode } from './treeProvider';
-import { exportAndUnpack, packAndImport, initPacPath, createSolution, listEnvironments, listSolutions, writeTemplateFlow, addWorkflowComponent } from './pacCli';
+import { exportAndUnpack, packAndImport, initPacPath, createSolution, listEnvironments, listSolutions, writeTemplateFlow, addWorkflowComponent, TriggerType } from './pacCli';
 import { loadCompanyContext, writeDefaultContext, CompanyContext } from './companyContext';
 import { generateSolutionDocs } from './docGenerator';
 import { initLogger, info, error } from './log';
 import { openFlowVisualizer } from './flowVisualizer';
+import { openLibraryPanel } from './libraryPanel';
 import { LibraryProvider, LibraryNode } from './libraryProvider';
 import { buildLibrary, saveLibrary, loadLibrary, generateClaudeMd, mergeLibraries } from './libraryBuilder';
 import { importFromJson, importFromCsv, importFromClipboardText, saveMockEntry, getMockDataPath, listApiActions, listMockActions } from './mockDataImporter';
@@ -14,6 +15,10 @@ import { initSharePoint, spUpload, spDownload, spListFolder, storeClientSecret, 
 import { resolveEnvName, getFlowRuns, getFlowRunDetail } from './paApi';
 import { openFlowRunsPanel } from './flowRunsPanel';
 import { buildCloudIndex, renderIndexMarkdown } from './cloudIndexBuilder';
+import { initAsana, setAsanaPat, updateAsanaConfiguredContext, extractTaskGid, fetchTask, fetchProjectSections, createTask as createAsanaTask } from './asanaApi';
+import { linkTask, unlinkTask, pullSharedLinks, importBridgeLinks } from './asanaLinks';
+import { AsanaTreeProvider, AsanaNode } from './asanaProvider';
+import { openAsanaTaskPanel } from './asanaPanel';
 
 export async function activate(context: vscode.ExtensionContext) {
   initLogger(context);
@@ -33,6 +38,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
   await initPacPath(context);
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+  initAsana(context, workspaceRoot);
+  void updateAsanaConfiguredContext(); // drives the Asana view's welcome content
 
   // Deep-merge two JSON values. `local` takes precedence for scalar conflicts.
   // Arrays of strings → union. Arrays of objects → merge by first found key (name/id/url/key).
@@ -126,6 +133,10 @@ export async function activate(context: vscode.ExtensionContext) {
               info('Action library pulled from SharePoint');
             }
           }),
+      // Asana solution↔task links shared by the team
+      pullSharedLinks(workspaceRoot)
+        .then(() => info('Asana links pulled from SharePoint'))
+        .catch(e => info(`Asana links startup pull skipped: ${e.message}`)),
     ]).catch(() => { /* not signed in yet or files don't exist — ignore */ });
   }
   const solutionsRoot = workspaceRoot ? path.join(workspaceRoot, 'solutions') : undefined;
@@ -150,11 +161,178 @@ export async function activate(context: vscode.ExtensionContext) {
     statusBar.tooltip = env.EnvironmentUrl;
   });
 
+  const asanaProvider = new AsanaTreeProvider();
+
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('dxt-power-automate.treeView', provider),
     vscode.window.registerTreeDataProvider('dxt-power-automate.libraryView', libProvider),
+    vscode.window.registerTreeDataProvider('dxt-power-automate.asanaView', asanaProvider),
 
     vscode.commands.registerCommand('dxt-power-automate-toolkit.refresh', () => provider.refresh()),
+
+    // ── Asana ────────────────────────────────────────────────────────────────
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.asanaSetPat', async () => {
+      const pat = await vscode.window.showInputBox({
+        title: 'Asana — Personal Access Token',
+        prompt: 'Create one at app.asana.com/0/my-apps → Personal access tokens. Stored encrypted via VS Code SecretStorage.',
+        password: true,
+        placeHolder: '1/1205145366424683:…',
+      });
+      if (!pat?.trim()) { return; }
+      await setAsanaPat(pat.trim());
+      asanaProvider.refresh();
+      provider.refresh();
+      vscode.window.showInformationMessage('✅ Asana connected.');
+    }),
+
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.asanaRefresh', () => asanaProvider.refresh()),
+
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.asanaOpenTask', async (arg: string | AsanaNode | PowerAutomateNode) => {
+      const gid = typeof arg === 'string'
+        ? arg
+        : arg instanceof AsanaNode
+          ? arg.task?.gid
+          : (arg as PowerAutomateNode)?.payload?.asanaGid;
+      if (!gid) { return; }
+      await openAsanaTaskPanel(context, gid);
+    }),
+
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.asanaOpenInBrowser', async (node: AsanaNode | PowerAutomateNode) => {
+      let url = node instanceof AsanaNode ? node.task?.permalink_url : (node as PowerAutomateNode)?.payload?.asanaUrl;
+      if (!url) {
+        const gid = node instanceof AsanaNode ? node.task?.gid : (node as PowerAutomateNode)?.payload?.asanaGid;
+        if (gid) {
+          try { url = (await fetchTask(gid)).permalink_url; } catch { /* fall through */ }
+        }
+      }
+      if (url) { void vscode.env.openExternal(vscode.Uri.parse(url)); }
+    }),
+
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.asanaAddComment', async (node: AsanaNode) => {
+      const gid = node?.task?.gid;
+      if (!gid) { return; }
+      await openAsanaTaskPanel(context, gid);
+    }),
+
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.asanaCreateTask', async () => {
+      const name = await vscode.window.showInputBox({
+        title: 'Asana — New Task',
+        prompt: 'Task name',
+        validateInput: v => v?.trim() ? undefined : 'Required',
+      });
+      if (!name) { return; }
+      const notes = await vscode.window.showInputBox({ title: 'Asana — New Task', prompt: 'Notes (optional)' });
+      if (notes === undefined) { return; }
+      let sectionGid: string | undefined;
+      try {
+        const sections = await fetchProjectSections();
+        if (sections.length) {
+          const pick = await vscode.window.showQuickPick(
+            sections.map(s => ({ label: s.name, gid: s.gid })),
+            { title: 'Asana — New Task', placeHolder: 'Section (Esc to leave unfiled)' }
+          );
+          sectionGid = pick?.gid;
+        }
+      } catch { /* sections unavailable — create unfiled */ }
+      try {
+        const created = await createAsanaTask({ name, notes: notes || undefined, sectionGid });
+        asanaProvider.refresh();
+        const open = await vscode.window.showInformationMessage(`✅ Task created: ${created.name}`, 'Open in Asana');
+        if (open) { void vscode.env.openExternal(vscode.Uri.parse(created.permalink_url)); }
+      } catch (e: any) {
+        vscode.window.showErrorMessage(`Create task failed: ${e.message}`);
+      }
+    }),
+
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.linkAsanaTask', async (node: PowerAutomateNode | AsanaNode) => {
+      if (!workspaceRoot) {
+        vscode.window.showWarningMessage('Open a workspace folder first.');
+        return;
+      }
+
+      // From an Asana task node → pick a local solution; from a solution node → paste a task URL/GID
+      let solutionUniqueName: string | undefined;
+      let gid: string | undefined;
+
+      if (node instanceof AsanaNode) {
+        gid = node.task?.gid;
+        if (!gid) { return; }
+        if (!solutionsRoot || !fs.existsSync(solutionsRoot)) {
+          vscode.window.showWarningMessage('No local solutions folder found — export a solution first.');
+          return;
+        }
+        const localDirs = fs.readdirSync(solutionsRoot, { withFileTypes: true })
+          .filter(d => d.isDirectory() && !d.name.startsWith('.'))
+          .map(d => d.name);
+        const pick = await vscode.window.showQuickPick(localDirs, {
+          title: `Link "${node.task!.name}" to a solution`,
+          placeHolder: 'Select the solution this ticket belongs to',
+        });
+        if (!pick) { return; }
+        solutionUniqueName = pick;
+      } else {
+        solutionUniqueName = node?.payload?.solution?.SolutionUniqueName;
+        if (!solutionUniqueName) { return; }
+        const input = await vscode.window.showInputBox({
+          title: `Link Asana Task to ${solutionUniqueName}`,
+          prompt: 'Paste the Asana task URL or GID',
+          placeHolder: 'https://app.asana.com/0/1204978926889787/1210… or 1210…',
+        });
+        if (!input) { return; }
+        const extracted = extractTaskGid(input);
+        if (!extracted) {
+          vscode.window.showErrorMessage('Could not find a task GID in that input.');
+          return;
+        }
+        gid = extracted;
+      }
+
+      // Validate the task exists before storing the link (mirrors dxt-bridge's 404 check)
+      try {
+        const task = await fetchTask(gid);
+        await linkTask(workspaceRoot, solutionUniqueName, gid);
+        provider.refresh();
+        vscode.window.showInformationMessage(`🔗 Linked "${task.name}" to ${solutionUniqueName}`);
+      } catch (e: any) {
+        vscode.window.showErrorMessage(`Could not link task: ${e.message}`);
+      }
+    }),
+
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.unlinkAsanaTask', async (node: PowerAutomateNode) => {
+      const gid = node?.payload?.asanaGid;
+      const solutionUniqueName = node?.payload?.solution?.SolutionUniqueName;
+      if (!gid || !solutionUniqueName || !workspaceRoot) { return; }
+      await unlinkTask(workspaceRoot, solutionUniqueName, gid);
+      provider.refresh();
+      vscode.window.showInformationMessage(`Unlinked task from ${solutionUniqueName}.`);
+    }),
+
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.asanaImportBridgeLinks', async () => {
+      if (!workspaceRoot) {
+        vscode.window.showWarningMessage('Open a workspace folder first.');
+        return;
+      }
+      const picked = await vscode.window.showOpenDialog({
+        title: 'Select the dxt-bridge .asana.json',
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: false,
+        filters: { JSON: ['json'] },
+        defaultUri: vscode.Uri.file(path.join(process.env.USERPROFILE ?? '', 'Desktop', 'dxt-bridge', 'dxt-bridge', '.asana.json')),
+      });
+      if (!picked?.length) { return; }
+      try {
+        // Imports ONLY the links map — the plaintext PAT in .asana.json is ignored on purpose.
+        const count = await importBridgeLinks(workspaceRoot, picked[0].fsPath);
+        provider.refresh();
+        vscode.window.showInformationMessage(
+          `✅ Imported ${count} Asana link${count !== 1 ? 's' : ''} from dxt-bridge. ` +
+          `The PAT was NOT imported — run "Asana: Set Personal Access Token" to connect.`
+        );
+      } catch (e: any) {
+        vscode.window.showErrorMessage(`Import failed: ${e.message}`);
+      }
+    }),
 
     vscode.commands.registerCommand('dxt-power-automate-toolkit.exportSolution', async (node: PowerAutomateNode) => {
       const { solution, envUrl } = node.payload ?? {};
@@ -185,20 +363,20 @@ export async function activate(context: vscode.ExtensionContext) {
 
       const dest = effectiveSolutionsRoot;
       await vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: `Exporting ${solution.FriendlyName}…`, cancellable: false },
+        { location: vscode.ProgressLocation.Notification, title: `Pulling "${solution.FriendlyName}" from cloud…`, cancellable: false },
         async (progress) => {
           progress.report({ message: 'See Output panel for live progress' });
           try {
             info(`Exporting solution: ${solution.SolutionUniqueName} from ${envUrl}`);
             await exportAndUnpack(envUrl, solution.SolutionUniqueName, dest);
             info(`Export complete: ${solution.SolutionUniqueName}`);
-            vscode.window.showInformationMessage(`✅ "${solution.FriendlyName}" exported successfully.`);
+            vscode.window.showInformationMessage(`✅ "${solution.FriendlyName}" pulled from cloud successfully.`);
             provider.refresh();
             // auto-rebuild library after each export
             const lib = buildLibrary(dest);
             saveLibrary(lib, dest);
             const _wr1 = workspaceRoot ?? path.join(dest, '..');
-            generateClaudeMd(lib, dest, _wr1);
+            generateClaudeMd(lib, dest, _wr1, context.extensionPath);
             libProvider.setLibrary(lib);
             info(`Library rebuilt — ${lib.flowsScanned} flows across ${lib.solutionsScanned} solutions`);
             mergeAndUploadLibrary(lib).catch(e => info(`Library SharePoint sync skipped: ${e.message}`));
@@ -216,20 +394,20 @@ export async function activate(context: vscode.ExtensionContext) {
       if (!solution || !envUrl || !solutionLocalDir) { return; }
       const envHost = new URL(envUrl).hostname;
       const confirm = await vscode.window.showWarningMessage(
-        `Import "${solution.FriendlyName}" to ${envHost}?`,
+        `Push "${solution.FriendlyName}" to ${envHost}?`,
         { modal: true },
-        'Import'
+        'Push to Cloud'
       );
-      if (confirm !== 'Import') { return; }
+      if (confirm !== 'Push to Cloud') { return; }
       await vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: `Importing ${solution.FriendlyName}…`, cancellable: false },
+        { location: vscode.ProgressLocation.Notification, title: `Pushing "${solution.FriendlyName}" to cloud…`, cancellable: false },
         async (progress) => {
           progress.report({ message: 'Packing… See Output panel for live progress' });
           try {
             info(`Importing solution: ${solution.SolutionUniqueName} to ${envUrl}`);
             await packAndImport(envUrl, solution.SolutionUniqueName, solutionLocalDir);
             info(`Import complete: ${solution.SolutionUniqueName}`);
-            vscode.window.showInformationMessage(`✅ "${solution.FriendlyName}" imported successfully.`);
+            vscode.window.showInformationMessage(`✅ "${solution.FriendlyName}" pushed to cloud successfully.`);
           } catch (e: any) {
             error(`Import failed: ${solution.SolutionUniqueName}`, e.message);
             vscode.window.showErrorMessage(`❌ Import failed: ${e.message}`);
@@ -259,6 +437,14 @@ export async function activate(context: vscode.ExtensionContext) {
       openFlowVisualizer(context, flowPath);
     }),
 
+    vscode.commands.registerCommand('dxt-power-automate-toolkit.openLibrarySearch', () => {
+      if (!solutionsRoot) {
+        vscode.window.showWarningMessage('Open a workspace folder first.');
+        return;
+      }
+      openLibraryPanel(context, solutionsRoot);
+    }),
+
     vscode.commands.registerCommand('dxt-power-automate-toolkit.buildLibrary', () => {
       if (!solutionsRoot) {
         vscode.window.showWarningMessage('Open a workspace folder first.');
@@ -266,7 +452,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       const lib = buildLibrary(solutionsRoot);
       saveLibrary(lib, solutionsRoot);
-      generateClaudeMd(lib, solutionsRoot, workspaceRoot);
+      generateClaudeMd(lib, solutionsRoot, workspaceRoot, context.extensionPath);
       libProvider.setLibrary(lib);
       mergeAndUploadLibrary(lib).catch(e => info(`Library SharePoint sync skipped: ${e.message}`));
       if (workspaceRoot && fs.existsSync(path.join(workspaceRoot, 'CLAUDE.md'))) {
@@ -438,7 +624,7 @@ export async function activate(context: vscode.ExtensionContext) {
               // Rebuild library immediately after each export
               const lib = buildLibrary(solutionsRoot);
               saveLibrary(lib, solutionsRoot);
-              generateClaudeMd(lib, solutionsRoot, workspaceRoot);
+              generateClaudeMd(lib, solutionsRoot, workspaceRoot, context.extensionPath);
               libProvider.setLibrary(lib);
               info(`Library updated — ${lib.flowsScanned} flows indexed`);
               mergeAndUploadLibrary(lib).catch(e => info(`Library SharePoint sync skipped: ${e.message}`));
@@ -668,7 +854,7 @@ export async function activate(context: vscode.ExtensionContext) {
             await exportAndUnpack(matchedEnv.EnvironmentUrl, picked.solution.SolutionUniqueName, solutionsRoot!);
             const lib = buildLibrary(solutionsRoot!);
             saveLibrary(lib, solutionsRoot!);
-            generateClaudeMd(lib, solutionsRoot!, workspaceRoot);
+            generateClaudeMd(lib, solutionsRoot!, workspaceRoot, context.extensionPath);
             libProvider.setLibrary(lib);
             mergeAndUploadLibrary(lib).catch(e => info(`Library SharePoint sync skipped: ${e.message}`));
             if (workspaceRoot && fs.existsSync(path.join(workspaceRoot, 'CLAUDE.md'))) {
@@ -1410,6 +1596,17 @@ ${result.missing.length ? `<p style="margin-top:16px;color:#f48771;font-size:12p
         publisherDisplayName = displayInput;
       }
 
+      // Starter flow — the org-mandated Try/Catch + error-email template
+      type StarterItem = vscode.QuickPickItem & { trigger?: TriggerType };
+      const starterPick = await vscode.window.showQuickPick<StarterItem>([
+        { label: '$(play) Manual / Button', description: 'Recommended', detail: 'Starter flow with org-mandated Try/Catch + error email', trigger: 'Manual' },
+        { label: '$(globe) HTTP Request', detail: 'Starter flow triggered by an HTTP request (webhooks, bots)', trigger: 'HTTP' },
+        { label: '$(clock) Scheduled (daily)', detail: 'Starter flow on a daily recurrence', trigger: 'Scheduled' },
+        { label: '$(circle-slash) Skip', detail: 'Create an empty solution with no starter flow' },
+      ], { title: `${titlePrefix} — Starter flow`, placeHolder: 'Add a starter flow to the new solution?' });
+      if (!starterPick) { return; }
+      const starter = starterPick.trigger ? { trigger: starterPick.trigger } : undefined;
+
       await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Notification, title: `Creating solution "${displayName}"…`, cancellable: false },
         async (progress) => {
@@ -1417,9 +1614,13 @@ ${result.missing.length ? `<p style="margin-top:16px;color:#f48771;font-size:12p
           try {
             info(`Creating solution: ${uniqueName} in ${envUrl}`);
             info(`Publisher: ${publisherDisplayName} (prefix=${publisherPrefix}, uniqueName=${publisherUniqueName})`);
-            await createSolution(envUrl, uniqueName, displayName, publisherPrefix, publisherDisplayName, publisherUniqueName, solutionsRoot!);
+            await createSolution(envUrl, uniqueName, displayName, publisherPrefix, publisherDisplayName, publisherUniqueName, solutionsRoot!, starter);
             info(`Solution created: ${uniqueName}`);
-            vscode.window.showInformationMessage(`✅ Solution "${displayName}" created in ${envFriendlyName}`);
+            vscode.window.showInformationMessage(
+              starter
+                ? `✅ Solution "${displayName}" created in ${envFriendlyName}. Map the Office 365 connection in the PA portal, then turn the starter flow on.`
+                : `✅ Solution "${displayName}" created in ${envFriendlyName}`
+            );
             provider.refresh();
           } catch (e: any) {
             error(`Create solution failed: ${uniqueName}`, e.message);
@@ -1440,7 +1641,26 @@ ${result.missing.length ? `<p style="margin-top:16px;color:#f48771;font-size:12p
         return;
       }
 
-      const { guid: flowGuid, fileName, displayName: flowName } = writeTemplateFlow(solutionLocalDir, solution.FriendlyName);
+      type TriggerItem = vscode.QuickPickItem & { trigger: TriggerType };
+      const triggerPick = await vscode.window.showQuickPick<TriggerItem>([
+        { label: '$(play) Manual / Button', description: 'Recommended', detail: 'Org-mandated Try/Catch + error email, triggered manually', trigger: 'Manual' },
+        { label: '$(globe) HTTP Request', detail: 'Triggered by an HTTP request (webhooks, bots)', trigger: 'HTTP' },
+        { label: '$(clock) Scheduled (daily)', detail: 'Daily recurrence trigger', trigger: 'Scheduled' },
+      ], { title: `Add Template Flow to ${solution.FriendlyName}`, placeHolder: 'Choose the trigger type' });
+      if (!triggerPick) { return; }
+
+      const description = await vscode.window.showInputBox({
+        title: `Add Template Flow to ${solution.FriendlyName}`,
+        prompt: 'Short description for the flow name (optional)',
+        placeHolder: 'e.g. Process Meter Alerts — leave empty for "Starter Flow"',
+      });
+      if (description === undefined) { return; }
+
+      const { guid: flowGuid, fileName, displayName: flowName } = writeTemplateFlow(
+        solutionLocalDir,
+        solution.FriendlyName,
+        { trigger: triggerPick.trigger, description: description || undefined }
+      );
       addWorkflowComponent(solutionLocalDir, flowGuid, flowName, fileName);
       info(`Template flow added to ${solution.SolutionUniqueName} (${flowGuid})`);
       provider.refresh();

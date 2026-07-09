@@ -1,0 +1,478 @@
+{
+  "properties": {
+    "connectionReferences": {},
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "undefined",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "65841985-0cf2-4352-a6df-52c54329667c"
+          },
+          "type": "Request",
+          "kind": "Button",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "description": "Please enter your input",
+                  "title": "handoffApiId",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_1": {
+                  "description": "Please enter your input",
+                  "title": "ProactiveCampaignId",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_2": {
+                  "description": "Please enter your input",
+                  "title": "OriginFlow",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "text",
+                "text_1",
+                "text_2"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "attemptStart": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "bf11c9f1-58db-45b1-b331-52807eec94b6"
+          },
+          "type": "Compose",
+          "inputs": "@string(\r\n  div(\r\n    sub(\r\n      ticks(\r\n        startOfDay(utcNow())\r\n        ),\r\n         ticks('1970-01-01T00:00:00Z')\r\n         ),\r\n      10000)\r\n)\r\n"
+        },
+        "attemptEnd": {
+          "runAfter": {
+            "attemptStart": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "6557c06a-f8c6-4719-b6ef-c3e967e77578"
+          },
+          "type": "Compose",
+          "inputs": "@string(\r\n  div(\r\n    sub(\r\n      ticks(\r\n        startOfDay(addDays(utcNow(),1))\r\n        ),\r\n         ticks('1970-01-01T00:00:00Z')\r\n         ),\r\n      10000)\r\n)\r\n"
+        },
+        "Condition": {
+          "actions": {
+            "Respond_to_a_Power_App_or_flow": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "299a6b33-17ea-48b9-9dd8-97d43367bfcc"
+              },
+              "type": "Response",
+              "kind": "PowerApp",
+              "inputs": {
+                "statusCode": 200,
+                "body": {
+                  "response": "@{body('Filter_array')}"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": {
+                      "title": "Response",
+                      "x-ms-dynamically-added": true,
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Do_until": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {
+              "Respond_to_a_Power_App_or_flow_1": {
+                "runAfter": {},
+                "metadata": {
+                  "operationMetadataId": "904da1db-0b6a-4b1e-bc23-13594f21c193"
+                },
+                "type": "Response",
+                "kind": "PowerApp",
+                "inputs": {
+                  "statusCode": 200,
+                  "body": {
+                    "response": "Nothing Found"
+                  },
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "response": {
+                        "title": "Response",
+                        "x-ms-dynamically-added": true,
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "expression": {
+            "and": [
+              {
+                "greaterOrEquals": [
+                  "@length(body('Filter_array'))",
+                  1
+                ]
+              }
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "a60bbed0-0bfc-4dbd-a66f-683fff97087a"
+          },
+          "type": "If"
+        },
+        "Do_until": {
+          "actions": {
+            "Filter_array": {
+              "runAfter": {
+                "Parse_JSON": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "ec9b675f-48d5-4468-ab19-75aecfad4f29"
+              },
+              "type": "Query",
+              "inputs": {
+                "from": "@body('Parse_JSON')",
+                "where": "@equals(item()['proactiveCampaignId'],triggerBody()?['text_1'])"
+              }
+            },
+            "Parse_JSON": {
+              "runAfter": {
+                "HTTP": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "6927b726-dd1c-4ba6-81bf-e8530c5c6015"
+              },
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@body('HTTP')['transactions']",
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "channel": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "skill": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "source": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "transactionId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "attemptedTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "cancelledTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "conversationId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "conversationsClosedTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "conversationsCreatedTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "consumerId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "deliveredTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "eligibleTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "errorCode": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "errorMessage": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "errorSource": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "failedTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "inviteTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "optInsTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "optOutsTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "proactiveCampaignId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "readTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "sentTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "initialSkill": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "initialChannel": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "handOffId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "ivrNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "skippedTime": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "messageStatus": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "HTTP": {
+              "runAfter": {
+                "Extract_Token": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "1bcec984-3b5c-4a3b-a5f3-fd3a93c0d9d5"
+              },
+              "type": "Http",
+              "inputs": {
+                "method": "POST",
+                "uri": "https://lo.cx-reporting.liveperson.net/api/account/644555/app/prmsg/transactions/",
+                "headers": {
+                  "Authorization": "Bearer @{body('Extract_Token')?['access_token']}"
+                },
+                "queries": {
+                  "attemptedStartTime": "@{outputs('attemptStart')}",
+                  "attemptedEndTime": "@{outputs('attemptEnd')}",
+                  "v": "2.0"
+                },
+                "body": {
+                  "offset": 0,
+                  "limit": 1000,
+                  "filters": {
+                    "channels": [
+                      "wa"
+                    ]
+                  }
+                }
+              },
+              "runtimeConfiguration": {
+                "contentTransfer": {
+                  "transferMode": "Chunked"
+                }
+              }
+            },
+            "Delay_1": {
+              "runAfter": {
+                "Filter_array": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "d5d9a242-61ba-4cd3-a219-2ebea113f59f"
+              },
+              "type": "Wait",
+              "inputs": {
+                "interval": {
+                  "count": 30,
+                  "unit": "Minute"
+                }
+              }
+            },
+            "Extract_Token": {
+              "runAfter": {
+                "Get_Bearer_(p)": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "5fc37f09-8a56-460f-86ca-aeb73b3fedfb"
+              },
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@body('Get_Bearer_(p)')",
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "access_token": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "Get_Bearer_(p)": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "54336040-b065-49f4-9516-5cbfcf2ce200"
+              },
+              "type": "Http",
+              "inputs": {
+                "method": "POST",
+                "uri": "https://lo.sentinel.liveperson.net/sentinel/api/account/644555/app/token",
+                "headers": {
+                  "Content-Type": "application/x-www-form-urlencoded"
+                },
+                "body": "v=1.0&grant_type=client_credentials&client_id=401d7661-6755-427f-ad97-edaed807846f&client_secret=4am95tsbdt03vi4jol5r5noqjg"
+              },
+              "runtimeConfiguration": {
+                "contentTransfer": {
+                  "transferMode": "Chunked"
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "attemptEnd": [
+              "Succeeded",
+              "Skipped",
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "expression": "@greaterOrEquals(length(body('Filter_array')),1)",
+          "limit": {
+            "count": 60,
+            "timeout": "PT1H"
+          },
+          "metadata": {
+            "operationMetadataId": "fa107ea9-1903-470b-a453-51822615cc02"
+          },
+          "type": "Until"
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

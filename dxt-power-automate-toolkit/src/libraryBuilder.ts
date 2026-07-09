@@ -1,5 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { flowDisplayName } from './flowSurgery';
+import { loadCompanyContext } from './companyContext';
+import { ORG_BUILDING_GUIDE } from './orgGuide';
+import { renderKnowledgeSection } from './knowledge';
 
 export interface LibraryExample {
   solution: string;
@@ -12,6 +16,7 @@ export interface LibraryOperation {
   displayName: string;
   count: number;
   examples: LibraryExample[];
+  paramKeys?: string[];
 }
 
 export interface LibraryConnector {
@@ -19,6 +24,37 @@ export interface LibraryConnector {
   icon: string;
   count: number;
   operations: Record<string, LibraryOperation>;
+  connectionNames?: string[];
+}
+
+export interface LibraryConnectionRef {
+  runtimeSource: string;
+  connection: any;
+  api: any;
+}
+
+export interface LibraryVariable {
+  type: string;
+  count: number;
+}
+
+export interface LibraryTrigger {
+  count: number;
+  flows: { solution: string; flow: string }[];
+}
+
+export interface LibraryFlowConnector {
+  connectorId: string;
+  displayName: string;
+  operations: string[];
+  count: number;
+}
+
+export interface LibraryFlow {
+  solution: string;
+  flow: string;
+  trigger: string;
+  connectors: LibraryFlowConnector[];
 }
 
 export type BotPatternKind = 'AdaptiveCard' | 'FlowCall' | 'Question' | 'Message';
@@ -38,6 +74,13 @@ export interface Library {
   topicsScanned: number;
   connectors: Record<string, LibraryConnector>;
   botPatterns: BotPattern[];
+  // Enriched index (dxt-bridge library shape) — optional so libraries built by
+  // older versions (or cached on SharePoint) still load and merge cleanly.
+  source?: string;
+  connectionRefs?: Record<string, LibraryConnectionRef>;
+  variables?: Record<string, LibraryVariable>;
+  triggers?: Record<string, LibraryTrigger>;
+  flows?: Record<string, LibraryFlow>;
 }
 
 // ─── Connector / operation display names ─────────────────────────────────────
@@ -138,8 +181,13 @@ const OPERATIONS: Record<string, string> = {
 
 // ─── Key extraction ───────────────────────────────────────────────────────────
 
+// Webhook/notification variants behave like their base types for key extraction
+const OPENAPI_TYPES = new Set(['OpenApiConnection', 'OpenApiConnectionWebhook', 'OpenApiConnectionNotification']);
+const APICONN_TYPES = new Set(['ApiConnection', 'ApiConnectionWebhook', 'ApiConnectionNotification']);
+const CONNECTOR_TYPES = new Set([...OPENAPI_TYPES, ...APICONN_TYPES]);
+
 function connectorKey(action: any, connRefs: Record<string, any>): string {
-  if (action.type === 'OpenApiConnection') {
+  if (OPENAPI_TYPES.has(action.type)) {
     // Newer style: connectionName is a plain string directly on inputs.host
     const connName = action.inputs?.host?.connectionName;
     if (connName) { return connName; }
@@ -149,7 +197,7 @@ function connectorKey(action: any, connRefs: Record<string, any>): string {
     if (m) { return m[1]; }
   }
 
-  if (action.type === 'ApiConnection') {
+  if (APICONN_TYPES.has(action.type)) {
     // Legacy style: connection name is an expression referencing $connections
     const expr: string = action.inputs?.host?.connection?.name || '';
     const m = expr.match(/\['([^']+)'\]\['connectionId'\]/);
@@ -161,12 +209,12 @@ function connectorKey(action: any, connRefs: Record<string, any>): string {
 }
 
 function operationKey(action: any): string {
-  if (action.type === 'OpenApiConnection') {
+  if (OPENAPI_TYPES.has(action.type)) {
     // Newer style: operationId is always explicit
     return action.inputs?.host?.operationId || 'unknown';
   }
 
-  if (action.type === 'ApiConnection') {
+  if (APICONN_TYPES.has(action.type)) {
     const opId = action.inputs?.host?.operationId;
     if (opId) { return opId; }
     // Infer from HTTP method + path for older SharePoint/legacy connectors
@@ -199,6 +247,66 @@ function cleanSnippet(action: any): any {
 
 // ─── Indexer ──────────────────────────────────────────────────────────────────
 
+function addUnique(arr: string[], val: string | undefined): void {
+  if (val && !arr.includes(val)) { arr.push(val); }
+}
+
+/** Index one action (or connector-typed trigger) into the library. */
+function indexOne(
+  name: string,
+  action: any,
+  connRefs: Record<string, any>,
+  solution: string,
+  flow: string,
+  lib: Library
+): void {
+  const cKey = connectorKey(action, connRefs);
+  const oKey = operationKey(action);
+  const { name: cName, icon } = connectorDisplay(cKey);
+  const oName = operationDisplay(oKey, action);
+
+  if (!lib.connectors[cKey]) {
+    lib.connectors[cKey] = { displayName: cName, icon, count: 0, operations: {} };
+  }
+  const conn = lib.connectors[cKey];
+  conn.count++;
+
+  if (!conn.operations[oKey]) {
+    conn.operations[oKey] = { displayName: oName, count: 0, examples: [] };
+  }
+  const op = conn.operations[oKey];
+  op.count++;
+
+  if (op.examples.length < 5) {
+    op.examples.push({ solution, flow, actionName: name, snippet: cleanSnippet(action) });
+  }
+
+  // Enriched index — only for genuine connector actions
+  if (CONNECTOR_TYPES.has(action.type)) {
+    const connectionName = action.inputs?.host?.connectionName;
+    if (typeof connectionName === 'string') {
+      conn.connectionNames = conn.connectionNames ?? [];
+      addUnique(conn.connectionNames, connectionName);
+    }
+    const params = action.inputs?.parameters || action.inputs?.body || {};
+    if (params && typeof params === 'object' && !Array.isArray(params)) {
+      op.paramKeys = op.paramKeys ?? [];
+      for (const key of Object.keys(params)) { addUnique(op.paramKeys, key); }
+    }
+    // Per-flow connector tracking
+    const flowEntry = lib.flows?.[`${solution}|${flow}`];
+    if (flowEntry) {
+      const entry = flowEntry.connectors.find(c => c.connectorId === cKey);
+      if (entry) {
+        addUnique(entry.operations, oKey);
+        entry.count++;
+      } else {
+        flowEntry.connectors.push({ connectorId: cKey, displayName: cName, operations: [oKey], count: 1 });
+      }
+    }
+  }
+}
+
 function indexActions(
   actions: Record<string, any>,
   connRefs: Record<string, any>,
@@ -207,30 +315,25 @@ function indexActions(
   lib: Library
 ): void {
   for (const [name, action] of Object.entries(actions)) {
-    const cKey = connectorKey(action, connRefs);
-    const oKey = operationKey(action);
-    const { name: cName, icon } = connectorDisplay(cKey);
-    const oName = operationDisplay(oKey, action);
+    indexOne(name, action, connRefs, solution, flow, lib);
 
-    if (!lib.connectors[cKey]) {
-      lib.connectors[cKey] = { displayName: cName, icon, count: 0, operations: {} };
-    }
-    const conn = lib.connectors[cKey];
-    conn.count++;
-
-    if (!conn.operations[oKey]) {
-      conn.operations[oKey] = { displayName: oName, count: 0, examples: [] };
-    }
-    const op = conn.operations[oKey];
-    op.count++;
-
-    if (op.examples.length < 5) {
-      op.examples.push({ solution, flow, actionName: name, snippet: cleanSnippet(action) });
+    if (action.type === 'InitializeVariable' && lib.variables) {
+      const v = action.inputs?.variables?.[0] || {};
+      if (v.name) {
+        if (!lib.variables[v.name]) { lib.variables[v.name] = { type: v.type || 'string', count: 0 }; }
+        lib.variables[v.name].count++;
+      }
     }
 
-    // recurse into nested actions
+    // recurse into nested actions (incl. Switch branches)
     if (action.actions) { indexActions(action.actions, connRefs, solution, flow, lib); }
     if (action.else?.actions) { indexActions(action.else.actions, connRefs, solution, flow, lib); }
+    if (action.default?.actions) { indexActions(action.default.actions, connRefs, solution, flow, lib); }
+    if (action.cases) {
+      for (const branch of Object.values(action.cases) as any[]) {
+        if (branch?.actions) { indexActions(branch.actions, connRefs, solution, flow, lib); }
+      }
+    }
   }
 }
 
@@ -362,6 +465,11 @@ export function buildLibrary(solutionsRoot: string): Library {
     topicsScanned: 0,
     connectors: {},
     botPatterns: [],
+    source: 'local',
+    connectionRefs: {},
+    variables: {},
+    triggers: {},
+    flows: {},
   };
 
   if (!fs.existsSync(solutionsRoot)) { return lib; }
@@ -373,12 +481,37 @@ export function buildLibrary(solutionsRoot: string): Library {
     lib.solutionsScanned++;
 
     for (const file of fs.readdirSync(wfDir).filter(f => f.endsWith('.json'))) {
-      const flowName = file.replace(/-[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}\.json$/i, '');
+      const flowName = flowDisplayName(file);
       try {
         const flow = JSON.parse(fs.readFileSync(path.join(wfDir, file), 'utf8'));
         lib.flowsScanned++;
         const def = flow.properties?.definition || flow.definition || flow;
         const connRefs = flow.properties?.connectionReferences || {};
+
+        // Connection-reference blobs — the exact JSON to paste into new flows
+        for (const [refName, refObj] of Object.entries(connRefs) as [string, any][]) {
+          if (!lib.connectionRefs![refName]) {
+            lib.connectionRefs![refName] = {
+              runtimeSource: refObj.runtimeSource || 'invoker',
+              connection: refObj.connection || {},
+              api: refObj.api || {},
+            };
+          }
+        }
+
+        // Trigger inventory + per-flow entry
+        const [tName, t] = (Object.entries(def.triggers || {})[0] || ['', {}]) as [string, any];
+        const triggerLabel = t?.kind ? `${t.type || 'Unknown'} (${t.kind})` : (t?.type || 'Unknown');
+        if (!lib.triggers![triggerLabel]) { lib.triggers![triggerLabel] = { count: 0, flows: [] }; }
+        lib.triggers![triggerLabel].count++;
+        lib.triggers![triggerLabel].flows.push({ solution: sol, flow: flowName });
+        lib.flows![`${sol}|${flowName}`] = { solution: sol, flow: flowName, trigger: triggerLabel, connectors: [] };
+
+        // Connector-based triggers (SharePoint, Dataverse, …) join the index too
+        if (CONNECTOR_TYPES.has(t?.type)) {
+          indexOne(`_trigger_:${tName}`, t, connRefs, sol, flowName, lib);
+        }
+
         indexActions(def.actions || {}, connRefs, sol, flowName, lib);
       } catch { /* skip corrupt */ }
     }
@@ -446,6 +579,12 @@ export function mergeLibraries(base: Library, patch: Library): Library {
     if (!bpSeen.has(key)) { botPatterns.push(p); bpSeen.add(key); }
   }
 
+  // Enriched maps: per-key, the fresh local scan (patch) replaces the base
+  // (SharePoint cache); base-only entries survive. Defaults keep libraries
+  // built before the enrichment merging cleanly.
+  const mergeMap = <T>(b?: Record<string, T>, p?: Record<string, T>): Record<string, T> =>
+    ({ ...JSON.parse(JSON.stringify(b ?? {})), ...JSON.parse(JSON.stringify(p ?? {})) });
+
   return {
     lastUpdated: new Date().toISOString(),
     solutionsScanned: (base.solutionsScanned ?? 0) + (patch.solutionsScanned ?? 0),
@@ -453,16 +592,19 @@ export function mergeLibraries(base: Library, patch: Library): Library {
     topicsScanned: (base.topicsScanned ?? 0) + (patch.topicsScanned ?? 0),
     connectors,
     botPatterns,
+    source: 'merged',
+    connectionRefs: mergeMap(base.connectionRefs, patch.connectionRefs),
+    variables: mergeMap(base.variables, patch.variables),
+    triggers: mergeMap(base.triggers, patch.triggers),
+    flows: mergeMap(base.flows, patch.flows),
   };
 }
 
 // ─── Context helpers ──────────────────────────────────────────────────────────
 
 function buildCompanySection(workspaceRoot: string): string {
-  const ctxPath = path.join(workspaceRoot, 'company-context.json');
-  if (!fs.existsSync(ctxPath)) { return ''; }
-  let ctx: any;
-  try { ctx = JSON.parse(fs.readFileSync(ctxPath, 'utf8')); } catch { return ''; }
+  const ctx = loadCompanyContext(workspaceRoot);
+  if (!ctx) { return ''; }
 
   const lines: string[] = [];
 
@@ -604,7 +746,7 @@ function buildCloudIndexSection(workspaceRoot: string): string {
   } catch { return ''; }
 }
 
-export function generateClaudeMd(lib: Library, solutionsRoot: string, workspaceRoot?: string): void {
+export function generateClaudeMd(lib: Library, solutionsRoot: string, workspaceRoot?: string, extensionPath?: string): void {
   const updated = new Date(lib.lastUpdated).toLocaleString();
   const outDir = workspaceRoot ?? solutionsRoot;
 
@@ -658,6 +800,41 @@ export function generateClaudeMd(lib: Library, solutionsRoot: string, workspaceR
 
   const companySection   = workspaceRoot ? buildCompanySection(workspaceRoot)   : '';
   const cloudIndexSection = workspaceRoot ? buildCloudIndexSection(workspaceRoot) : '';
+  const knowledgeBody = extensionPath ? renderKnowledgeSection(extensionPath) : '';
+  const knowledgeSection = knowledgeBody ? `## Power Automate knowledge (official docs)\n\n${knowledgeBody}\n` : '';
+
+  // Library context — enriched-index sections (dxt-bridge context.js port).
+  // Guarded on the optional keys so a pre-enrichment library degrades gracefully.
+  const libraryContextSection = (() => {
+    const parts: string[] = [];
+
+    const refEntries = Object.entries(lib.connectionRefs ?? {});
+    if (refEntries.length) {
+      parts.push(`### Connection references (paste verbatim into new flow JSON)`, ``);
+      parts.push(`These are the EXACT objects to put in \`properties.connectionReferences\` — copy them, never guess connection names.`, ``);
+      for (const [name, ref] of refEntries) {
+        parts.push(`- \`${name}\`: \`${JSON.stringify(ref)}\``);
+      }
+      parts.push(``);
+    }
+
+    const vars = Object.entries(lib.variables ?? {})
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 30);
+    if (vars.length) {
+      parts.push(`### Common variable names (from InitializeVariable actions)`, ``);
+      parts.push(vars.map(([name, v]) => `${name} (${v.type}, ×${v.count})`).join('  |  '), ``);
+    }
+
+    const trigs = Object.entries(lib.triggers ?? {})
+      .sort((a, b) => b[1].count - a[1].count);
+    if (trigs.length) {
+      parts.push(`### Trigger types in use`, ``);
+      parts.push(trigs.map(([label, t]) => `${label} (×${t.count})`).join('  |  '), ``);
+    }
+
+    return parts.length ? `## Org library context\n\n${parts.join('\n')}` : '';
+  })();
 
   const md = `# DXT Power Automate Toolkit — AI Context
 
@@ -667,6 +844,9 @@ export function generateClaudeMd(lib: Library, solutionsRoot: string, workspaceR
 
 ${companySection}
 
+${ORG_BUILDING_GUIDE}
+
+${knowledgeSection}
 ## Folder structure
 
 \`\`\`
@@ -728,6 +908,7 @@ For connector actions (\`type: "OpenApiConnection"\`):
 
 Wrap in \`@{...}\` when the expression is part of a string. Use \`@expression\` alone (no braces) when the whole value is an expression.
 
+${libraryContextSection}
 ## Connectors used in this org
 
 ${topConnectors}

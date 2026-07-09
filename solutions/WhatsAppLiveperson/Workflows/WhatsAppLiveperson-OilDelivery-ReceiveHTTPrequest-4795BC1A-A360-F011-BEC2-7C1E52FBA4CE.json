@@ -1,0 +1,273 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "dta_sharedsharepointonline_b503c"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_office365": {
+        "api": {
+          "name": "shared_office365"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "dta_sharedoffice365_1c70b"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Http",
+          "inputs": {
+            "triggerAuthenticationType": "User",
+            "triggerAllowedUsers": "58a06a78-f11d-40ff-9da8-9e380658ae19",
+            "method": "POST"
+          },
+          "metadata": {}
+        }
+      },
+      "actions": {
+        "Compose": {
+          "type": "Compose",
+          "inputs": "@triggerBody()",
+          "runAfter": {
+            "Condition_-_check_if_found_an_item": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Parse_JSON": {
+          "type": "ParseJson",
+          "inputs": {
+            "content": "@triggerBody()",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                },
+                "deliveryDate": {
+                  "type": "string"
+                },
+                "deliveryNote": {
+                  "type": "string"
+                },
+                "userPhone": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "runAfter": {}
+        },
+        "Get_items": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://prepaypower.sharepoint.com/sites/Omni-ChannelToolIntegration",
+              "table": "f5989d9f-500d-426e-817e-9a3ae92424b8",
+              "$filter": "MobileNumber eq '@{body('Parse_JSON')?['userPhone']}' and Created gt '@{startOfDay(utcNow())}'"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItems",
+              "connectionName": "shared_sharepointonline-1"
+            }
+          },
+          "runAfter": {
+            "Parse_JSON": [
+              "Succeeded"
+            ]
+          },
+          "runtimeConfiguration": {
+            "paginationPolicy": {
+              "minimumItemCount": 100000
+            }
+          }
+        },
+        "Condition_-_check_if_found_an_item": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "greaterOrEquals": [
+                  "@length(outputs('Get_items')?['body/value'])",
+                  1
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Saved_Item_JSON": {
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@outputs('Get_items')?['body/value'][0]",
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ItemInternalId": {
+                      "type": [
+                        "string",
+                        "integer",
+                        "number"
+                      ]
+                    },
+                    "ID": {
+                      "type": [
+                        "string",
+                        "integer",
+                        "number"
+                      ]
+                    },
+                    "Created": {
+                      "type": [
+                        "string",
+                        "integer",
+                        "number"
+                      ]
+                    },
+                    "CustomerName": {
+                      "type": [
+                        "string",
+                        "integer",
+                        "number"
+                      ]
+                    },
+                    "CRN": {
+                      "type": [
+                        "string",
+                        "integer",
+                        "number"
+                      ]
+                    },
+                    "MobileNumber": {
+                      "type": [
+                        "string",
+                        "integer",
+                        "number"
+                      ]
+                    },
+                    "Template": {
+                      "type": [
+                        "string",
+                        "integer",
+                        "number"
+                      ]
+                    },
+                    "Modified": {
+                      "type": [
+                        "string",
+                        "integer",
+                        "number"
+                      ]
+                    },
+                    "OriginalItemId": {
+                      "type": [
+                        "string",
+                        "integer",
+                        "number"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "Update_item": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "https://prepaypower.sharepoint.com/",
+                  "table": "9d2dd0ee-7858-4b1e-aee9-f246bf6bb88a",
+                  "id": "@body('Saved_Item_JSON')?['OriginalItemId']",
+                  "item/Title": "@body('Saved_Item_JSON')?['CRN']",
+                  "item/Status/Value": "@if(equals(body('Parse_JSON')?['status'], 'accept'), 'Date Accepted', 'Date Rejected')",
+                  "item/FeedbackfromCustomer": "@if(equals(body('Parse_JSON')?['status'], 'accept'), '', body('Parse_JSON')?['deliveryNote'])"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "PatchItem",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              },
+              "runAfter": {
+                "Saved_Item_JSON": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Update_item_-_WhatsApp_Log": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "https://prepaypower.sharepoint.com/sites/Omni-ChannelToolIntegration",
+                  "table": "f5989d9f-500d-426e-817e-9a3ae92424b8",
+                  "id": "@body('Saved_Item_JSON')?['ID']",
+                  "item/Status/Value": "Completed"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "PatchItem",
+                  "connectionName": "shared_sharepointonline-1"
+                }
+              },
+              "runAfter": {
+                "Update_item": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "else": {
+            "actions": {
+              "Send_an_email_from_a_shared_mailbox_(V2)": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "emailMessage/MailboxAddress": "digital.transformation@prepaypower.ie",
+                    "emailMessage/To": "dxteam@prepaypower.ie",
+                    "emailMessage/Subject": "Oil Delivery - New WhatsApp Reply Received - Unable to Find Customer on Records",
+                    "emailMessage/Body": "<p class=\"editor-paragraph\">We’ve received a new reply on WhatsApp regarding an oil delivery. However, the system couldn’t locate any matching customer details in our records.<br><br>Here are the details:<br>Mobile number: @{body('Parse_JSON')?['userPhone']}<br>Message: @{body('Parse_JSON')?['deliveryNote']} | @{body('Parse_JSON')?['deliveryDate']} | @{body('Parse_JSON')?['status']}</p><br>",
+                    "emailMessage/Importance": "Normal"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                    "operationId": "SharedMailboxSendEmailV2",
+                    "connectionName": "shared_office365"
+                  }
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Get_items": [
+              "Succeeded"
+            ]
+          }
+        }
+      },
+      "outputs": {},
+      "description": "The Fallback Endpoint is on PrepayPower(Default) Environment : \n\nhttps://make.powerautomate.com/environments/Default-1bf22423-77fd-4a29-b26c-0140e0b78126/flows/shared/892628ab-278f-4497-9cf6-6a991cd20f85/details"
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

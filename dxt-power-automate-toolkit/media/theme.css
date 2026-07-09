@@ -1,0 +1,669 @@
+/* ── Theme for ported dxt-bridge webviews ────────────────────────────────────
+   Assembled from dxt-bridge css/layout.css (:root vars + dark block, reset,
+   body base), css/components.css (buttons), and the full css/utilities.css.
+   Dark theme keys off the body class VS Code sets on every webview
+   (vscode-dark / vscode-high-contrast) instead of html[data-theme]. */
+
+:root {
+  --bg: #ffffff;
+  --bg2: #f7f7f5;
+  --bg3: #f0efe9;
+  --border: #e5e4de;
+  --border2: #6e6c6c;
+  --text: #1a1a18;
+  --text2: #5a5a55;
+  --text3: #9a9990;
+  --blue: #185fa5;
+  --blue-bg: #e6f1fb;
+  --blue-text: #0c447c;
+  --green: #3b6d11;
+  --green-bg: #eaf3de;
+  --green-text: #27500a;
+  --amber: #854f0b;
+  --amber-bg: #faeeda;
+  --amber-text: #633806;
+  --red: #a32d2d;
+  --red-bg: #fcebeb;
+  --red-text: #791f1f;
+  --purple: #534ab7;
+  --purple-bg: #eeedfe;
+  --purple-text: #3c3489;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --mono: 'Cascadia Code', 'Consolas', monospace;
+
+  --blue-bg-hover: #d0e8f8;
+  --green-bg-hover: #d8edc4;
+  --red-bg-hover: #f5d0d0;
+  --amber-bg-hover: #f5e2c0;
+
+  --viz-loop-bg: #e6f1fb;
+  --viz-loop-bg-hover: #d0e5f7;
+  --viz-loop-inner-bg: #f5f9fe;
+  --viz-loop-border: #c0d8ef;
+  --viz-scope-border: #c5bae0;
+  --viz-scope-bg-hover: #e0dcfc;
+  --viz-scope-inner-bg: #f8f6fe;
+  --viz-health-ok-border: #cde3b0;
+  --viz-health-err-border: #f2c8c8;
+
+  --json-key: #0b6bab;
+  --json-str: #2f7d32;
+  --json-num: #5a51c9;
+  --json-bool: #8536a8;
+  --json-null: #b1491f;
+
+  --insight-grad-a: #e8f1fb;
+  --insight-grad-b: #f3f6ff;
+  --skel-a: #cdddf5;
+  --skel-b: #ddeafc;
+
+  color-scheme: light;
+}
+
+body.vscode-dark,
+body.vscode-high-contrast {
+  --bg: #1e1e1c;
+  --bg2: #171715;
+  --bg3: #262623;
+  --border: #3a3a36;
+  --border2: #6e6c66;
+  --text: #e6e4dd;
+  --text2: #adaba1;
+  --text3: #807e75;
+  --blue: #58a6e0;
+  --blue-bg: #132a3f;
+  --blue-text: #a3cdee;
+  --green: #82b850;
+  --green-bg: #1d2b12;
+  --green-text: #b1d68a;
+  --amber: #d3a04f;
+  --amber-bg: #322511;
+  --amber-text: #e5c084;
+  --red: #d97070;
+  --red-bg: #3a1919;
+  --red-text: #efa9a9;
+  --purple: #948ce2;
+  --purple-bg: #221e3d;
+  --purple-text: #bcb5f0;
+
+  --blue-bg-hover: #1a3854;
+  --green-bg-hover: #27391a;
+  --red-bg-hover: #4a2020;
+  --amber-bg-hover: #403017;
+
+  --viz-loop-bg: #142b42;
+  --viz-loop-bg-hover: #1a3a58;
+  --viz-loop-inner-bg: #10161e;
+  --viz-loop-border: #274766;
+  --viz-scope-border: #46395f;
+  --viz-scope-bg-hover: #2a2244;
+  --viz-scope-inner-bg: #151020;
+  --viz-health-ok-border: #33502a;
+  --viz-health-err-border: #5a2626;
+
+  --json-key: #7ec8e3;
+  --json-str: #b5cea8;
+  --json-num: #b5b4f0;
+  --json-bool: #c792ea;
+  --json-null: #e07a5f;
+
+  --insight-grad-a: #16222f;
+  --insight-grad-b: #1a2436;
+  --skel-a: #23374d;
+  --skel-b: #2b425c;
+
+  color-scheme: dark;
+}
+
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg2);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* The panel's single workspace fills the webview */
+#flow-workspace,
+#library-view {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Buttons (dxt-bridge css/components.css) ─────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn:hover {
+  background: var(--bg2);
+  border-color: var(--text3);
+}
+.btn:active {
+  transform: scale(0.98);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.btn-primary {
+  background: var(--blue-bg);
+  border-color: var(--blue);
+  color: var(--blue-text);
+}
+.btn-primary:hover {
+  background: var(--blue-bg-hover);
+}
+.btn-secondary {
+  background: var(--bg2);
+  border-color: var(--border);
+  color: var(--text);
+}
+.btn-secondary:hover {
+  background: var(--bg);
+}
+.btn-success {
+  background: var(--green-bg);
+  border-color: var(--green);
+  color: var(--green-text);
+}
+.btn-success:hover {
+  background: var(--green-bg-hover);
+}
+.btn-danger {
+  background: var(--red-bg);
+  border-color: var(--red);
+  color: var(--red-text);
+}
+.btn-danger:hover {
+  background: var(--red-bg-hover);
+}
+.btn-amber {
+  background: var(--amber-bg);
+  border-color: var(--amber);
+  color: var(--amber-text);
+}
+.btn-amber:hover {
+  background: var(--amber-bg-hover);
+}
+
+/* ── dxt-bridge css/utilities.css (appended verbatim below) ──────────────────── */
+/* ── Utilities + extracted inline styles ──────────────────────────────────────
+   Small single-purpose classes used to replace inline style="…" attributes in
+   the JS templates. Visual styling lives here (themeable via CSS variables);
+   JS keeps only *state* inline (element.style.display toggles). */
+
+/* Layout */
+.u-flex           { display: flex; }
+.u-flex-col       { display: flex; flex-direction: column; }
+.u-flex-wrap      { flex-wrap: wrap; }
+.u-items-center   { align-items: center; }
+.u-items-start    { align-items: flex-start; }
+.u-flex-1         { flex: 1; }
+.u-flex-2         { flex: 2; }
+.u-shrink-0       { flex-shrink: 0; }
+.u-gap-4          { gap: 4px; }
+.u-gap-6          { gap: 6px; }
+.u-gap-8          { gap: 8px; }
+.u-gap-10         { gap: 10px; }
+.u-ml-auto        { margin-left: auto; }
+.u-ml-4           { margin-left: 4px; }
+.u-m-0            { margin: 0; }
+.u-mt-4           { margin-top: 4px; }
+.u-mt-6           { margin-top: 6px; }
+.u-mt-8           { margin-top: 8px; }
+.u-mt-10          { margin-top: 10px; }
+.u-mt-12          { margin-top: 12px; }
+.u-mt-14          { margin-top: 14px; }
+.u-mb-4           { margin-bottom: 4px; }
+.u-mb-8           { margin-bottom: 8px; }
+.u-mb-10          { margin-bottom: 10px; }
+.u-mb-12          { margin-bottom: 12px; }
+.u-mb-14          { margin-bottom: 14px; }
+.u-mb-24          { margin-bottom: 24px; }
+.u-w-100          { width: 100%; }
+.u-box-border     { box-sizing: border-box; }
+.u-text-center    { text-align: center; }
+.u-text-right     { text-align: right; }
+.u-nowrap         { white-space: nowrap; }
+.u-break-all      { word-break: break-all; }
+
+/* Type + colour (always via variables so themes work) */
+.u-fs-11          { font-size: 11px; }
+.u-fs-12          { font-size: 12px; }
+.u-fs-13          { font-size: 13px; }
+.u-fs-14          { font-size: 14px; }
+.u-mono           { font-family: var(--mono); }
+.u-text2          { color: var(--text2); }
+.u-text3          { color: var(--text3); }
+.u-red            { color: var(--red-text); }
+.u-green          { color: var(--green-text); }
+.u-amber          { color: var(--amber-text); }
+.u-dim-30         { opacity: 0.3; }
+.u-dim-45         { opacity: 0.45; }
+.u-dim-60         { opacity: 0.6; }
+.u-dim-65         { opacity: 0.65; }
+
+/* ── index.html extracted blocks ────────────────────────────────────────────── */
+#setup-wizard { transition: opacity 0.35s ease; }
+#tasks-sidebar-content   { overflow-y: auto; flex: 1; }
+#library-sidebar-content { flex-direction: column; overflow-y: auto; flex: 1; }
+
+.btn-chat-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: middle;
+  margin-right: 5px;
+}
+.ns-dept-other-input { margin-top: 6px; width: 100%; box-sizing: border-box; }
+.ns-preview-row      { display: flex; align-items: center; gap: 8px; }
+.ns-copy-btn         { padding: 4px 10px; font-size: 12px; }
+.ns-conflict         { font-size: 12px; color: var(--amber-text); margin-top: 4px; }
+.ns-status           { font-size: 13px; color: var(--text3); margin-left: 4px; }
+.form-actions        { margin-top: 14px; display: flex; gap: 8px; align-items: center; }
+.log-chevron         { color: var(--text3); font-size: 12px; }
+
+/* ── solution.js extracted blocks ──────────────────────────────────────────── */
+.info-value-md   { font-size: 14px; }
+.info-value-key  { font-size: 11px; font-family: var(--mono); word-break: break-all; }
+.info-value-mono { font-size: 14px; font-family: var(--mono); }
+.info-value-pub  { font-size: 13px; }
+.info-local-yes  { color: var(--green-text); }
+.info-local-no   { color: var(--text3); }
+
+.local-only-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: var(--amber-bg);
+  color: var(--amber-text);
+  border: 1px solid var(--amber);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.local-only-banner svg { flex-shrink: 0; margin-top: 1px; }
+
+.flows-th-center   { text-align: center; }
+.flows-th-actions  { min-width: 220px; }
+.flows-td-count    { text-align: center; font-family: var(--mono); font-size: 13px; color: var(--text2); }
+.flows-td-actions  { text-align: right; white-space: nowrap; }
+
+.sol-doc-empty-hint { opacity: 0.45; }
+.btn-row            { display: flex; gap: 6px; }
+
+/* Add-flow modal */
+.af-modal        { width: 460px; max-width: 96vw; }
+.af-modal-body   { padding: 18px 20px; overflow-y: auto; }
+.af-field        { margin-bottom: 14px; }
+.af-field-label  { margin-bottom: 4px; }
+.af-trig-row     { display: flex; gap: 6px; flex-wrap: wrap; }
+.af-log {
+  max-height: 140px;
+  overflow-y: auto;
+  font-size: 12px;
+  font-family: var(--mono);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  line-height: 1.7;
+  margin-bottom: 12px;
+  white-space: pre-wrap;
+}
+.af-actions      { display: flex; gap: 8px; align-items: center; }
+.af-status       { font-size: 12px; color: var(--text3); margin-left: 4px; }
+
+/* Bot topic editor */
+.yaml-filename-hint { opacity: 0.4; font-size: 11px; }
+
+/* ── chat.js extracted blocks ──────────────────────────────────────────────── */
+.chat-header-btns {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+/* NOTE: the chat panel is deliberately dark in BOTH themes (VS Code style),
+   so these use the panel's own fixed palette, not the global theme vars. */
+.chat-welcome-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 10px;
+  border: 2px solid #333;
+}
+.chat-welcome-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #d4d4d4;
+}
+.chat-welcome-greeting {
+  font-size: 13px;
+  color: #8c8c8c;
+  line-height: 1.6;
+  font-style: italic;
+  margin-bottom: 4px;
+}
+
+/* Task-group urgency dots (replace colour emoji) */
+.ast-group-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: baseline;
+}
+.ast-gd-overdue  { background: var(--red); }
+.ast-gd-week     { background: var(--amber); }
+.ast-gd-upcoming { background: var(--green); }
+.ast-gd-nodate   { background: var(--border2); }
+
+/* ── Chat streaming indicator ──────────────────────────────────────────────── */
+/* Lives inside the always-dark chat panel — fixed palette, not theme vars */
+.chat-thinking-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #8c8c8c;
+  font-style: italic;
+  margin-bottom: 6px;
+}
+.chat-thinking-line svg.icon { margin-right: 0; }
+.chat-thinking-dots span {
+  animation: chat-dot-pulse 1.2s infinite;
+  display: inline-block;
+}
+.chat-thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.chat-thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes chat-dot-pulse {
+  0%, 60%, 100% { opacity: 0.25; }
+  30% { opacity: 1; }
+}
+
+/* ── assistant.js extracted blocks ─────────────────────────────────────────── */
+.ast-clear-activity-btn { margin-top: 8px; width: 100%; }
+.ast-setup-hint         { font-size: 12px; color: var(--text3); margin-top: 4px; }
+.ast-setup-row          { display: flex; gap: 8px; margin-top: 14px; }
+.ast-insight-header     { cursor: pointer; }
+.ast-meta-comments      { color: var(--text3); }
+
+/* ── asana.js extracted blocks ─────────────────────────────────────────────── */
+.btn-icon-xs      { padding: 3px 7px; }
+.asana-setup-desc { font-size: 13px; color: var(--text2); margin: 0 0 8px; }
+.asana-setup-hint { font-size: 11px; color: var(--text3); margin: 6px 0 0; }
+
+/* ── visualizer.js extracted blocks ────────────────────────────────────────── */
+.viz-no-results {
+  padding: 16px 18px;
+  font-size: 12px;
+  color: var(--text3);
+  text-align: center;
+}
+.viz-api-meta   { font-size: 12px; opacity: 0.65; padding: 2px 0 8px; }
+.viz-no-params  { padding: 4px 0 8px; font-size: 12px; opacity: 0.6; }
+.viz-dc-type    { font-size: 9px; opacity: 0.5; }
+.viz-expr-sm    { min-height: 36px; }
+.viz-expr-md    { min-height: 80px; }
+.viz-expr-lg    { min-height: 100px; }
+.viz-expr-xl    { min-height: 120px; }
+.viz-input-xs   { width: 80px; }
+.viz-input-sm   { width: 100px; }
+.viz-input-md   { width: 120px; }
+.viz-select-auto{ width: auto; }
+
+/* ── Inline SVG icons ──────────────────────────────────────────────────────── */
+svg.icon {
+  vertical-align: -2px;
+  flex-shrink: 0;
+}
+button svg.icon,
+a svg.icon { margin-right: 5px; }
+button.icon-only svg.icon { margin-right: 0; }
+
+/* ── Command palette ───────────────────────────────────────────────────────── */
+#cmd-palette { display: none; }
+#cmd-palette.open { display: block; }
+.cp-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 800;
+}
+.cp-box {
+  position: fixed;
+  top: 12vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(560px, calc(100vw - 32px));
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3);
+  z-index: 810;
+  overflow: hidden;
+}
+.cp-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  padding: 14px 16px;
+  font-size: 15px;
+  outline: none;
+  box-sizing: border-box;
+}
+.cp-results {
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: 6px;
+}
+.cp-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+}
+.cp-item svg.icon { color: var(--text3); margin-right: 0; }
+.cp-item.selected,
+.cp-item:hover { background: var(--blue-bg); }
+.cp-title { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-sub   { color: var(--text3); font-size: 11px; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-hint  { margin-left: auto; color: var(--text3); font-size: 11px; flex-shrink: 0; }
+.cp-empty { padding: 18px; text-align: center; color: var(--text3); font-size: 13px; }
+.cp-footer {
+  display: flex;
+  gap: 14px;
+  padding: 7px 14px;
+  border-top: 1px solid var(--border);
+  color: var(--text3);
+  font-size: 11px;
+  background: var(--bg2);
+}
+
+/* ── Toast notifications ───────────────────────────────────────────────────── */
+#toast-container {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(380px, calc(100vw - 36px));
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+  color: var(--text);
+  animation: toast-in 0.22s ease;
+}
+.toast-out { opacity: 0; transform: translateX(12px); transition: all 0.24s ease; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.toast-icon  { font-weight: 700; flex-shrink: 0; }
+.toast-msg   { flex: 1; line-height: 1.45; word-break: break-word; }
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 1px 3px;
+  flex-shrink: 0;
+}
+.toast-close:hover { color: var(--text); }
+.toast-ok   { border-left-color: var(--green); }
+.toast-ok   .toast-icon { color: var(--green-text); }
+.toast-err  { border-left-color: var(--red); }
+.toast-err  .toast-icon { color: var(--red-text); }
+.toast-warn { border-left-color: var(--amber); }
+.toast-warn .toast-icon { color: var(--amber-text); }
+.toast-info { border-left-color: var(--blue); }
+.toast-info .toast-icon { color: var(--blue-text); }
+
+/* ── library.js extracted blocks ───────────────────────────────────────────── */
+.lib-disc-log-line   { color: var(--text3); font-size: 11px; padding: 2px 8px; }
+.lib-disc-done-line  { color: var(--green-text); font-size: 12px; padding: 6px 8px; font-weight: 600; }
+.lib-disc-err-line   { color: var(--red-text); padding: 6px 8px; }
+.lib-disc-all-done   { color: var(--green-text); }
+.lib-disc-tracked-label { margin-top: 10px; }
+.lib-empty-pad       { margin-top: 12px; }
+.lib-empty-tight     { padding: 10px 14px; }
+.lib-empty-roomy     { padding: 20px; }
+.sol-loading-empty   { font-style: italic; }
+.lib-config-optional { font-weight: 400; color: var(--green-text); }
+.lib-token-ok        { color: var(--green-text); }
+.lib-token-none      { color: var(--text3); }
+
+/* Show-more pagination buttons */
+.sol-show-more { display: block; width: calc(100% - 20px); margin: 6px 10px; }
+.lib-show-more { display: block; margin: 12px auto; }
+
+/* ── Library table view ────────────────────────────────────────────────────── */
+.lib-tbl-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 4px;
+}
+.lib-tbl-summary { font-size: 12px; color: var(--text3); flex: 1; }
+.lib-tbl-wrap { overflow-x: auto; padding: 6px 14px 14px; }
+.lib-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.lib-tbl th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text2);
+  position: sticky;
+  top: 0;
+}
+.lib-tbl td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.lib-tbl tbody tr:hover { background: var(--bg2); }
+.lib-tbl-action { font-family: var(--mono); font-size: 12px; }
+.lib-tbl-step   { display: block; font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.lib-tbl-sol    { font-family: var(--mono); font-size: 12px; }
+.lib-tbl-count  { text-align: right; font-family: var(--mono); }
+.lib-tbl-none   { color: var(--text3); }
+
+/* ── Pinned / recent solutions quick access ────────────────────────────────── */
+.sol-quick-label { padding: 8px 14px 2px; }
+.sol-quick-env {
+  font-size: 10px;
+  color: var(--text3);
+  margin-left: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.sol-pin-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text3);
+  padding: 2px 4px;
+  opacity: 0;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.sol-item:hover .sol-pin-btn,
+.sol-pin-btn:focus-visible,
+.sol-pin-btn.pinned { opacity: 1; }
+.sol-pin-btn.pinned { color: var(--blue); }
+.sol-pin-btn svg.icon { margin-right: 0; }

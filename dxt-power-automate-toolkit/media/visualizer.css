@@ -1,0 +1,531 @@
+/* ── Flow workspace layout ──────────────────────────────────────────────────── */
+#flow-workspace {
+  flex: 1;
+  display: none;
+  overflow: hidden;
+  min-height: 0;
+}
+#flow-workspace.open { display: flex; }
+
+.viz-panel {
+  flex: 1;
+  background: var(--bg2);
+  color: var(--text);
+  overflow-y: auto;
+  padding: 20px 28px 60px;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-width: 0;
+}
+
+/* chat panel */
+.chat-panel {
+  display: none;
+  width: 340px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+}
+.chat-panel.open { display: flex; flex-direction: column; }
+
+/* ── Loading ─────────────────────────────────────────────────────────────────── */
+.viz-loading {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 60vh; gap: 14px; color: var(--text3);
+}
+.viz-spinner {
+  width: 28px; height: 28px;
+  border: 3px solid var(--border2); border-top-color: var(--blue);
+  border-radius: 50%; animation: viz-spin .8s linear infinite;
+}
+@keyframes viz-spin { to { transform: rotate(360deg); } }
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────────── */
+.viz-toolbar { display: flex; gap: 8px; margin-bottom: 18px; align-items: center; }
+.viz-search {
+  flex: 1; background: var(--bg); border: 1px solid var(--border2); color: var(--text);
+  border-radius: var(--radius); padding: 6px 12px; font-size: 12px; outline: none;
+  transition: border-color .12s;
+}
+.viz-search::placeholder { color: var(--text3); }
+.viz-search:focus { border-color: var(--blue); }
+.viz-run-btn {
+  background: var(--blue); color: #fff; border: none; border-radius: var(--radius);
+  padding: 6px 16px; font-size: 12px; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; gap: 5px; white-space: nowrap;
+  transition: filter .12s;
+}
+.viz-run-btn:hover { filter: brightness(1.1); }
+.viz-run-btn:disabled { opacity: .5; cursor: default; filter: none; }
+
+/* Manual refresh (replaces the old auto-poll) */
+.viz-refresh-btn {
+  background: var(--bg); color: var(--text2); border: 1px solid var(--border2);
+  border-radius: var(--radius); width: 30px; height: 30px; font-size: 15px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; padding: 0; transition: background .12s, color .12s, border-color .12s;
+}
+.viz-refresh-btn:hover { background: var(--blue); color: #fff; border-color: var(--blue); }
+.viz-refresh-btn:disabled { opacity: .6; cursor: default; }
+.viz-refresh-btn.spinning { animation: viz-spin .7s linear infinite; }
+
+/* ── Diagram / JSON toggle ───────────────────────────────────────────────────── */
+.viz-view-toggle {
+  display: flex; border: 1px solid var(--border2); border-radius: var(--radius);
+  overflow: hidden; flex-shrink: 0;
+}
+.viz-view-btn {
+  background: var(--bg); color: var(--text3); border: none; cursor: pointer;
+  padding: 5px 13px; font-size: 11px; font-weight: 500; white-space: nowrap;
+  transition: background .12s, color .12s;
+}
+.viz-view-btn + .viz-view-btn { border-left: 1px solid var(--border2); }
+.viz-view-btn:hover { color: var(--text); background: var(--bg2); }
+.viz-view-btn.active { background: var(--blue); color: #fff; }
+
+/* ── JSON view ───────────────────────────────────────────────────────────────── */
+.viz-json-view {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+  margin-top: 4px;
+}
+.viz-json-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 14px; background: var(--bg2); border-bottom: 1px solid var(--border);
+}
+.viz-json-label { font-size: 11px; font-weight: 600; color: var(--text2); letter-spacing: .3px; text-transform: uppercase; }
+.viz-json-actions { display: flex; gap: 6px; align-items: center; }
+.viz-json-action-btn {
+  font-size: 11px; border-radius: var(--radius); padding: 4px 13px; cursor: pointer;
+  border: 1px solid var(--border2); background: var(--bg); color: var(--text2);
+  transition: background .1s, color .1s, border-color .1s; white-space: nowrap;
+}
+.viz-json-action-btn:hover { background: var(--blue); color: #fff; border-color: var(--blue); }
+.viz-json-action-btn:disabled { opacity: .5; cursor: default; }
+.viz-json-save-btn   { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 600; }
+.viz-json-save-btn:hover { filter: brightness(1.1); background: var(--blue); }
+.viz-json-upload-btn { background: #1a7f4b; color: #fff; border-color: #1a7f4b; font-weight: 600; }
+.viz-json-upload-btn:hover { filter: brightness(1.15); background: #1a7f4b; }
+.viz-json-edit-btn   { font-weight: 500; }
+.viz-json-err {
+  padding: 8px 14px; font-size: 11px; color: #e07070;
+  background: rgba(224,112,112,.08); border-bottom: 1px solid rgba(224,112,112,.2);
+}
+.viz-json-pre {
+  margin: 0; padding: 16px 18px; font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  font-size: 12px; line-height: 1.65; overflow: auto; max-height: 65vh;
+  background: var(--bg); color: var(--text); white-space: pre; tab-size: 2;
+}
+.viz-json-editor {
+  display: block; width: 100%; box-sizing: border-box; margin: 0;
+  padding: 16px 18px; font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  font-size: 12px; line-height: 1.65; min-height: 55vh; max-height: 65vh;
+  background: var(--bg); color: var(--text); border: none; outline: none;
+  resize: vertical; white-space: pre; overflow-wrap: normal; overflow-x: auto; tab-size: 2;
+}
+/* JSON syntax token colours */
+.vjk  { color: var(--json-key); }
+.vjs  { color: var(--json-str); }
+.vjn  { color: var(--json-num); }
+.vjb  { color: var(--json-bool); }
+.vjnu { color: var(--json-null); }
+
+/* ── Zoom ────────────────────────────────────────────────────────────────────── */
+.viz-zoom-bar { display: flex; align-items: center; gap: 4px; margin-bottom: 14px; justify-content: flex-end; }
+.viz-zoom-btn {
+  width: 26px; height: 26px; border: 1px solid var(--border2); background: var(--bg);
+  color: var(--text2); border-radius: var(--radius); cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center; padding: 0;
+  transition: background .1s, color .1s, border-color .1s;
+}
+.viz-zoom-btn:hover { background: var(--blue); color: #fff; border-color: var(--blue); }
+.viz-zoom-reset { font-size: 11px; width: auto; padding: 0 9px; }
+.viz-zoom-pct { font-size: 11px; color: var(--text3); min-width: 38px; text-align: center; }
+
+/* ── Viewport / canvas ───────────────────────────────────────────────────────── */
+#viz-vp { overflow: auto; width: 100%; min-height: 300px; cursor: default; }
+.viz-canvas {
+  display: flex; flex-direction: column; align-items: center;
+  width: 100%; margin: 0 auto;
+  transform-origin: top center; will-change: transform; padding-bottom: 80px;
+}
+/* Root-level single cards stay readable on wide screens; containers expand freely */
+.viz-canvas > .viz-card { max-width: 560px; width: 100%; }
+
+/* ── Insert row ──────────────────────────────────────────────────────────────── */
+.viz-insert-row { display: flex; flex-direction: column; align-items: center; position: relative; }
+.viz-arrow { width: 2px; height: 22px; background: var(--border2); position: relative; flex-shrink: 0; }
+.viz-arrow.viz-arrow-bottom::after {
+  content: ''; position: absolute; bottom: -6px; left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent; border-right: 5px solid transparent;
+  border-top: 6px solid var(--border2);
+}
+.viz-insert-btn {
+  width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--border2);
+  background: var(--bg); color: var(--text3); font-size: 14px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.3; transition: opacity .15s, background .12s, color .12s, border-color .12s, box-shadow .12s;
+  flex-shrink: 0; padding: 0;
+}
+.viz-insert-row:hover .viz-insert-btn { opacity: 1; }
+.viz-insert-btn:hover {
+  background: var(--blue); color: #fff; border-color: var(--blue);
+  opacity: 1 !important;
+  box-shadow: 0 0 0 3px var(--blue-bg);
+}
+
+/* ── Run-after connector colors ──────────────────────────────────────────────── */
+.viz-arrow.ra-failed  { background: #C0392B; }
+.viz-arrow.ra-timeout { background: #E06C00; }
+.viz-arrow.ra-skipped { background: #888888; }
+.viz-arrow.ra-failed.viz-arrow-bottom::after  { border-top-color: #C0392B !important; }
+.viz-arrow.ra-timeout.viz-arrow-bottom::after { border-top-color: #E06C00 !important; }
+.viz-arrow.ra-skipped.viz-arrow-bottom::after { border-top-color: #888888 !important; }
+.viz-ra-dots { display: flex; align-items: center; gap: 3px; flex-shrink: 0; padding: 1px 0; }
+.viz-ra-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; cursor: default; }
+
+/* ── Connector badge ─────────────────────────────────────────────────────────── */
+.viz-conn-badge {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px;
+  padding: 2px 7px; border-radius: 9px; border: 1px solid; margin-left: 6px;
+  white-space: nowrap; max-width: 100px; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0;
+}
+
+/* ── Action card ─────────────────────────────────────────────────────────────── */
+.viz-card {
+  width: 100%; border-radius: var(--radius); background: var(--bg);
+  border: 1.5px solid var(--border2); overflow: hidden;
+  transition: box-shadow .15s, border-color .15s;
+}
+.viz-card:hover {
+  box-shadow: 0 3px 12px rgba(0,0,0,.12);
+  border-color: var(--text3);
+}
+.viz-card-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-left: 4px solid; user-select: none; cursor: pointer;
+  transition: background .1s;
+}
+.viz-card-head:hover { background: rgba(0,0,0,.02); }
+.viz-card-icon  { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+.viz-card-name  { font-weight: 600; font-size: 13px; flex: 1; min-width: 0; color: var(--text); }
+.viz-card-type  { font-size: 10px; color: var(--text3); font-family: var(--mono); white-space: nowrap; flex-shrink: 0; }
+.viz-card-chevron { font-size: 11px; color: var(--text3); transition: transform .15s; }
+.viz-card-chevron.open { transform: rotate(90deg); }
+.viz-card-body { font-size: 12px; color: var(--text2); border-top: 1px solid var(--border); word-break: break-word; }
+
+/* ── Type colour palette + head tints ───────────────────────────────────────── */
+/* border-left color is set inline from JS; background tint uses the class */
+.vt-trigger   { border-color: #742774; background: rgba(116,39,116,.05); }
+.vt-compose   { border-color: #E06C00; background: rgba(224,108,0,.05); }
+.vt-foreach   { border-color: #0078D4; background: rgba(0,120,212,.04); }
+.vt-condition { border-color: #0078D4; background: rgba(0,120,212,.04); }
+.vt-scope     { border-color: #7B5EA7; background: rgba(123,94,167,.05); }
+.vt-variable  { border-color: #9B4F96; background: rgba(155,79,150,.05); }
+.vt-api       { border-color: #185FA5; background: var(--blue-bg); }
+.vt-http      { border-color: #085B99; background: rgba(8,91,153,.05); }
+.vt-parsejson { border-color: #00838F; background: rgba(0,131,143,.04); }
+.vt-response  { border-color: #3B6D11; background: var(--green-bg); }
+.vt-other     { border-color: var(--border2); background: var(--bg2); }
+
+/* ── Edit / delete buttons ───────────────────────────────────────────────────── */
+.viz-edit-btn, .viz-del-btn, .viz-copy-btn {
+  background: none; border: 1px solid transparent; border-radius: var(--radius);
+  color: var(--text3); cursor: pointer; font-size: 12px; padding: 3px 7px;
+  opacity: 0; transition: opacity .15s; flex-shrink: 0; line-height: 1;
+}
+.viz-card-head:hover .viz-edit-btn, .viz-loop-header:hover .viz-edit-btn, .viz-scope-header:hover .viz-edit-btn,
+.viz-card-head:hover .viz-del-btn,  .viz-loop-header:hover .viz-del-btn,  .viz-scope-header:hover .viz-del-btn,
+.viz-card-head:hover .viz-copy-btn, .viz-loop-header:hover .viz-copy-btn, .viz-scope-header:hover .viz-copy-btn { opacity: 1; }
+.viz-edit-btn:hover  { opacity:1!important; background: var(--bg2); border-color: var(--border2); color: var(--text); }
+.viz-del-btn:hover   { opacity:1!important; color: var(--red-text); background: var(--red-bg); border-color: var(--red); }
+.viz-copy-btn:hover  { opacity:1!important; background: var(--bg2); border-color: var(--border2); color: var(--text); }
+.viz-copy-btn.active { opacity:1; color: var(--blue); border-color: var(--blue); background: var(--blue-bg,color-mix(in srgb,var(--blue) 12%,transparent)); }
+
+/* ── Edit panel ──────────────────────────────────────────────────────────────── */
+.viz-edit-panel { display: none; border-top: 2px solid var(--blue); padding: 14px 14px 16px; background: var(--bg2); }
+.viz-edit-field { margin-bottom: 12px; }
+.viz-edit-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px;
+  color: var(--text3); margin-bottom: 5px;
+}
+.viz-edit-text, .viz-edit-select {
+  width: 100%; background: var(--bg); border: 1px solid var(--border2); color: var(--text);
+  border-radius: var(--radius); padding: 6px 9px; font-size: 12px; font-family: var(--mono);
+  transition: border-color .12s;
+}
+.viz-edit-expr {
+  width: 100%; min-height: 64px; background: var(--bg); border: 1px solid var(--border2);
+  color: var(--text); border-radius: var(--radius); padding: 7px 9px;
+  font-size: 12px; font-family: var(--mono); resize: vertical; display: block;
+  line-height: 1.55; transition: border-color .12s;
+}
+.viz-edit-text:focus, .viz-edit-select:focus, .viz-edit-expr:focus { outline: none; border-color: var(--blue); }
+.viz-edit-actions { display: flex; gap: 8px; margin-top: 14px; }
+.viz-save-btn {
+  background: var(--blue); color: #fff; border: none; border-radius: var(--radius);
+  padding: 6px 16px; font-size: 12px; font-weight: 600; cursor: pointer; transition: filter .12s;
+}
+.viz-save-btn:hover { filter: brightness(1.1); }
+.viz-save-btn:disabled { opacity: .5; cursor: default; }
+.viz-cancel-btn {
+  background: var(--bg); color: var(--text2); border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 6px 16px; font-size: 12px; cursor: pointer;
+  transition: background .1s;
+}
+.viz-cancel-btn:hover { background: var(--bg3); }
+
+/* ── Dynamic content picker ──────────────────────────────────────────────────── */
+.viz-dc-picker { margin-top: 6px; display: inline-block; }
+.viz-dc-btn {
+  background: none; border: 1px solid var(--border2); border-radius: var(--radius);
+  color: var(--blue-text); cursor: pointer; font-size: 11px; padding: 3px 9px;
+  transition: background .1s;
+}
+.viz-dc-btn:hover { background: var(--blue-bg); }
+.viz-dc-menu {
+  position: fixed; z-index: 9999; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); min-width: 320px; max-width: 440px; max-height: 360px;
+  overflow-y: auto; display: none; box-shadow: 0 6px 24px rgba(0,0,0,.12);
+}
+.viz-dc-group {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
+  color: var(--text3); padding: 7px 10px 2px; background: var(--bg2); position: sticky; top: 0;
+}
+.viz-dc-item {
+  font-size: 11px; padding: 5px 12px 5px 18px; cursor: pointer;
+  font-family: var(--mono); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: background .08s;
+}
+.viz-dc-item:hover { background: var(--bg2); }
+
+/* ── Loop / Scope ────────────────────────────────────────────────────────────── */
+.viz-loop-box { width: 100%; border: 1.5px dashed var(--border2); border-radius: var(--radius-lg); overflow: hidden; }
+.viz-loop-header {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-left: 4px solid #0078D4; background: var(--viz-loop-bg);
+  cursor: pointer; user-select: none; transition: background .12s;
+}
+.viz-loop-header:hover { background: var(--viz-loop-bg-hover); }
+.viz-loop-inner {
+  padding: 12px 12px 6px; display: flex; flex-direction: column; align-items: center;
+  border-top: 1.5px dashed var(--border2); background: var(--viz-loop-inner-bg);
+}
+.viz-loop-inner.collapsed { display: none; }
+.viz-loop-badge {
+  font-size: 10px; background: var(--blue-bg); color: var(--blue-text);
+  border: 1px solid var(--viz-loop-border);
+  padding: 2px 8px; border-radius: 9px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 180px;
+}
+.viz-scope-box { width: 100%; border: 1.5px dashed var(--viz-scope-border); border-radius: var(--radius-lg); overflow: hidden; }
+.viz-scope-header {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-left: 4px solid #7B5EA7; background: var(--purple-bg);
+  cursor: pointer; user-select: none; transition: background .12s;
+}
+.viz-scope-header:hover { background: var(--viz-scope-bg-hover); }
+.viz-scope-inner {
+  padding: 12px 12px 6px; display: flex; flex-direction: column; align-items: center;
+  border-top: 1.5px dashed var(--viz-scope-border); background: var(--viz-scope-inner-bg);
+}
+.viz-scope-inner.collapsed { display: none; }
+
+/* ── Condition ───────────────────────────────────────────────────────────────── */
+.viz-cond-wrap { width: 100%; }
+.viz-cond-branches { display: flex; gap: 10px; margin-top: 3px; }
+.viz-branch {
+  flex: 1; border-radius: var(--radius); border: 1.5px solid var(--border2);
+  background: var(--bg); overflow: hidden; min-width: 220px;
+}
+.viz-branch-label {
+  font-size: 11px; font-weight: 700; padding: 6px 11px;
+  display: flex; align-items: center; gap: 5px; letter-spacing: .03em;
+}
+.viz-branch-yes .viz-branch-label {
+  background: var(--green-bg); color: var(--green-text);
+  border-bottom: 1px solid var(--viz-health-ok-border);
+}
+.viz-branch-no  .viz-branch-label {
+  background: var(--red-bg); color: var(--red-text);
+  border-bottom: 1px solid var(--viz-health-err-border);
+}
+.viz-branch-inner { padding: 6px; display: flex; flex-direction: column; align-items: center; }
+.viz-empty-branch-btn {
+  font-size: 11px; color: var(--text3); text-align: center; padding: 10px 6px; margin: 6px;
+  cursor: pointer; border: 1.5px dashed var(--border2); border-radius: var(--radius);
+  transition: background .1s, color .1s, border-color .1s; font-style: italic; user-select: none;
+  width: calc(100% - 12px);
+}
+.viz-empty-branch-btn:hover {
+  background: var(--bg2); color: var(--text2);
+  border-style: solid; border-color: var(--blue);
+}
+
+/* ── PA table ────────────────────────────────────────────────────────────────── */
+.viz-pa-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.viz-pa-table td {
+  padding: 4px 12px; vertical-align: top; border-top: 1px solid var(--border);
+  max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.viz-pa-table td:first-child { color: var(--text3); width: 36%; font-family: var(--mono); font-size: 10px; }
+.viz-pa-table td:last-child  { width: 64%; color: var(--text2); }
+.viz-pa-table tr:hover td { background: var(--bg2); }
+.viz-pa-section-label {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px;
+  color: var(--text3); padding: 6px 12px 3px;
+}
+.viz-pa-count { font-size: 10px; color: var(--text3); padding: 3px 12px 5px; }
+
+/* ── Tabs ────────────────────────────────────────────────────────────────────── */
+.viz-card-tabs { border-top: 1px solid var(--border); }
+.viz-tab-bar { display: flex; }
+.viz-tab-btn {
+  flex: 1; background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--text3); cursor: pointer; padding: 6px 0; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .6px; transition: color .1s, border-color .1s;
+}
+.viz-tab-btn:hover { color: var(--text); }
+.viz-tab-btn.active { color: var(--blue-text); border-bottom-color: var(--blue); }
+.viz-tab-pane { display: none; padding: 6px 0 4px; }
+.viz-tab-pane.active { display: block; }
+
+/* ── Run results ─────────────────────────────────────────────────────────────── */
+.viz-card.result-pass { border-color: var(--green) !important; }
+.viz-card.result-fail { border-color: var(--red) !important; }
+.viz-card.result-skip { border-color: var(--amber) !important; }
+.viz-result-badge { font-size: 14px; margin-left: 4px; }
+.viz-run-summary {
+  text-align: center; font-size: 12px; font-weight: 500;
+  padding: 10px; border-radius: var(--radius); margin-bottom: 16px;
+}
+.viz-run-summary.pass { background: var(--green-bg); color: var(--green-text); border: 1px solid var(--green); }
+.viz-run-summary.fail { background: var(--red-bg);   color: var(--red-text);   border: 1px solid var(--red); }
+
+/* ── Update banner ───────────────────────────────────────────────────────────── */
+.viz-banner {
+  position: fixed; top: 12px; right: 16px;
+  background: var(--blue); color: #fff; font-size: 11px; font-weight: 600;
+  padding: 5px 14px; border-radius: 14px;
+  opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 200;
+  box-shadow: 0 2px 10px rgba(0,0,0,.15);
+}
+.viz-banner.show { opacity: 1; }
+@keyframes viz-flash {
+  0%   { background: var(--bg); }
+  30%  { background: var(--blue-bg); }
+  100% { background: var(--bg); }
+}
+.viz-card.viz-updated { animation: viz-flash .6s ease-out; }
+
+/* ── Health panel ────────────────────────────────────────────────────────────── */
+.viz-health {
+  margin-bottom: 20px; border-radius: var(--radius); overflow: hidden;
+  border: 1px solid var(--border); width: 100%; max-width: 600px;
+  margin-left: auto; margin-right: auto;
+}
+.viz-health-header {
+  display: flex; align-items: center; gap: 8px; padding: 9px 14px;
+  cursor: pointer; user-select: none; font-size: 12px; font-weight: 600;
+}
+.viz-health-ok    .viz-health-header { background: var(--green-bg); color: var(--green-text); }
+.viz-health-error .viz-health-header { background: var(--red-bg);   color: var(--red-text);   }
+.viz-health-warn  .viz-health-header { background: var(--amber-bg); color: var(--amber-text); }
+.viz-health-info  .viz-health-header { background: var(--blue-bg);  color: var(--blue-text);  }
+.viz-health-summary { flex: 1; }
+.viz-health-chev { font-size: 12px; color: var(--text3); transition: transform .15s; }
+.viz-health-chev.open { transform: rotate(90deg); }
+.viz-health-body { border-top: 1px solid var(--border); }
+.viz-health-body.collapsed { display: none; }
+.viz-health-item {
+  padding: 10px 14px; border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--border); font-size: 12px; background: var(--bg);
+}
+.viz-health-item:last-child { border-bottom: none; }
+.viz-health-item-error { border-left-color: var(--red);   background: var(--red-bg); }
+.viz-health-item-warn  { border-left-color: var(--amber); background: var(--amber-bg); }
+.viz-health-item-info  { border-left-color: var(--blue);  background: var(--blue-bg); }
+.viz-health-item-title  { font-weight: 600; margin-bottom: 3px; font-size: 12px; color: var(--text); }
+.viz-health-item-detail { color: var(--text2); line-height: 1.6; font-size: 11px; }
+
+/* ── Insert modal ────────────────────────────────────────────────────────────── */
+.viz-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.35);
+  display: none; align-items: center; justify-content: center; z-index: 10000;
+}
+.viz-modal-overlay.open { display: flex; }
+.viz-modal {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  width: 400px; max-width: 96vw; max-height: 82vh;
+  overflow: hidden; display: flex; flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,.15);
+}
+.viz-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; font-size: 13px; font-weight: 700;
+  border-bottom: 1px solid var(--border); color: var(--text); flex-shrink: 0;
+}
+.viz-modal-title { font-size: 13px; font-weight: 700; color: var(--text); }
+.viz-modal-close {
+  background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px;
+  padding: 0 4px; line-height: 1; transition: color .1s;
+}
+.viz-modal-close:hover { color: var(--text); }
+.viz-modal-list { overflow-y: auto; padding: 6px 0; }
+.viz-modal-item {
+  display: flex; align-items: center; gap: 14px; padding: 10px 18px;
+  cursor: pointer; color: var(--text); transition: background .08s;
+}
+.viz-modal-item:hover { background: var(--bg2); }
+.viz-modal-item-icon  { font-size: 20px; width: 26px; text-align: center; flex-shrink: 0; }
+.viz-modal-item-label { font-size: 13px; font-weight: 600; }
+.viz-modal-item-desc  { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.viz-modal-group-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--text3); padding: 10px 18px 4px; margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.viz-modal-group-label:first-of-type { border-top: none; margin-top: 0; }
+.viz-modal-name-row {
+  padding: 12px 18px 10px; border-bottom: 1px solid var(--border);
+}
+.viz-modal-name-label {
+  display: block; font-size: 11px; font-weight: 600; color: var(--text2);
+  margin-bottom: 6px; text-transform: uppercase; letter-spacing: .06em;
+}
+.viz-modal-name-hint { font-weight: 400; color: var(--text3); text-transform: none; letter-spacing: 0; }
+.viz-modal-name-input {
+  width: 100%; box-sizing: border-box;
+  padding: 7px 10px; font-size: 13px;
+  border: 1px solid var(--border2); border-radius: var(--radius);
+  background: var(--bg2); color: var(--text); outline: none;
+  transition: border-color .12s;
+}
+.viz-modal-name-input:focus { border-color: var(--blue); }
+.viz-modal-paste-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 18px; font-size: 13px; cursor: pointer;
+  border-bottom: 2px solid var(--blue); color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 8%, transparent);
+  transition: background .12s;
+}
+.viz-modal-paste-item:hover { background: color-mix(in srgb, var(--blue) 16%, transparent); }
+.viz-modal-search-row {
+  padding: 10px 18px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 1; background: var(--bg); flex-shrink: 0;
+}
+.viz-modal-search-input {
+  width: 100%; box-sizing: border-box;
+  padding: 7px 10px; font-size: 13px;
+  border: 1px solid var(--border2); border-radius: var(--radius);
+  background: var(--bg2); color: var(--text); outline: none;
+  transition: border-color .12s;
+}
+.viz-modal-search-input:focus { border-color: var(--blue); }
+.viz-modal-search-input::placeholder { color: var(--text3); }
+
+/* ── Add Flow trigger selector ───────────────────────────────────────────────── */
+.af-trig.active {
+  background: var(--blue); border-color: var(--blue); color: #fff;
+}

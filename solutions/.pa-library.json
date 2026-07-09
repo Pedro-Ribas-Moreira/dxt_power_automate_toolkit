@@ -1,0 +1,4391 @@
+{
+  "lastUpdated": "2026-07-06T12:59:58.831Z",
+  "solutionsScanned": 1,
+  "flowsScanned": 6,
+  "topicsScanned": 0,
+  "connectors": {
+    "Scope": {
+      "displayName": "Scope",
+      "icon": "$(group-by-ref-type)",
+      "count": 9,
+      "operations": {
+        "Scope": {
+          "displayName": "Scope",
+          "count": 9,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "PPP Oil Retention OilDelivery Scheduled Getdatafro",
+              "actionName": "Try",
+              "snippet": {
+                "type": "Scope",
+                "actions": {
+                  "Run_a_query_against_a_dataset": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "groupid": "c308ec0c-defe-4fef-8ae2-d0eb7d1a3ee0",
+                        "datasetid": "15c334db-0c75-4028-958b-e6a44af3cfb5",
+                        "specification/query": "// DAX Query\nDEFINE\n\tVAR __DS0FilterTable = \n\t\tTREATAS({\"Not Delivered\"}, 'Oil Delivery'[DeliveryStatus])\n\n\tVAR __DS0FilterTable2 = \n\t\tTREATAS({\"Not Confirmed\"}, 'Oil Delivery'[OrderStatus])\n\n\tVAR __DS0FilterTable3 = \n\t\tTREATAS({\"COT\",\n\t\t\t\"Billed\"}, 'Oil Delivery'[Status])\n\n\tVAR __DS0Core = \n\t\tCALCULATETABLE(\n\t\t\tSUMMARIZE(\n\t\t\t\t'Oil Delivery',\n\t\t\t\t'Oil Delivery'[Address],\n\t\t\t\t'Oil Delivery'[DeliveryDate],\n\t\t\t\t'Oil Delivery'[DeliveryNote],\n\t\t\t\t'Oil Delivery'[DeliveryStatus],\n\t\t\t\t'Oil Delivery'[Distributor],\n\t\t\t\t'Oil Delivery'[Eircode],\n\t\t\t\t'Oil Delivery'[FillRestriction],\n\t\t\t\t'Oil Delivery'[FuelType],\n\t\t\t\t'Oil Delivery'[LatestVolumePercent],\n\t\t\t\t'Oil Delivery'[Mobile],\n\t\t\t\t'Oil Delivery'[MPRN],\n\t\t\t\t'Oil Delivery'[LatestVolumeReading],\n\t\t\t\t'Oil Delivery'[Name],\n\t\t\t\t'Oil Delivery'[OrderStatus],\n\t\t\t\t'Oil Delivery'[PropertyType],\n\t\t\t\t'Oil Delivery'[Status],\n\t\t\t\t'Oil Delivery'[SubmitDate],\n\t\t\t\t'Oil Delivery'[TankID],\n\t\t\t\t'Oil Delivery'[AssignedAgent],\n\t\t\t\t'Oil Delivery'[Capacity],\n\t\t\t\t'Oil Delivery'[ContactStrikes],\n\t\t\t\t'Oil Delivery'[CRN],\n\t\t\t\t'Oil Delivery'[ID],\n\t\t\t\t'Oil Delivery'[TotalCount],\n\t\t\t\t'Oil Delivery'[Volume]\n\t\t\t),\n\t\t\tKEEPFILTERS(__DS0FilterTable),\n\t\t\tKEEPFILTERS(__DS0FilterTable2),\n\t\t\tKEEPFILTERS(__DS0FilterTable3)\n\t\t)\n\n\nEVALUATE\n\t__DS0Core \n\nORDER BY\n\t'Oil Delivery'[DeliveryDate],\n\t'Oil Delivery'[Address],\n\t'Oil Delivery'[DeliveryNote],\n\t'Oil Delivery'[DeliveryStatus],\n\t'Oil Delivery'[Distributor],\n\t'Oil Delivery'[Eircode],\n\t'Oil Delivery'[FillRestriction],\n\t'Oil Delivery'[FuelType],\n\t'Oil Delivery'[LatestVolumePercent],\n\t'Oil Delivery'[Mobile],\n\t'Oil Delivery'[MPRN],\n\t'Oil Delivery'[LatestVolumeReading],\n\t'Oil Delivery'[Name],\n\t'Oil Delivery'[OrderStatus],\n\t'Oil Delivery'[PropertyType],\n\t'Oil Delivery'[Status],\n\t'Oil Delivery'[SubmitDate],\n\t'Oil Delivery'[TankID],\n\t'Oil Delivery'[AssignedAgent],\n\t'Oil Delivery'[Capacity],\n\t'Oil Delivery'[ContactStrikes],\n\t'Oil Delivery'[CRN],\n\t'Oil Delivery'[ID],\n\t'Oil Delivery'[TotalCount],\n\t'Oil Delivery'[Volume]\n",
+                        "specification/serializerSettings/includeNulls": false
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_powerbi",
+                        "operationId": "ExecuteDatasetQuery",
+                        "connectionName": "shared_powerbi"
+                      }
+                    },
+                    "runAfter": {}
+                  },
+                  "Compose": {
+                    "type": "Compose",
+                    "inputs": "@outputs('Run_a_query_against_a_dataset')?['body/firstTableRows']",
+                    "runAfter": {
+                      "Run_a_query_against_a_dataset": [
+                        "SUCCEEDED"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "1444c292-64bc-433b-9435-fb40ed394193"
+                    }
+                  },
+                  "Create_CSV_table": {
+                    "type": "Table",
+                    "inputs": {
+                      "from": "@outputs('Compose')",
+                      "format": "CSV",
+                      "columns": [
+                        {
+                          "header": "Address",
+                          "value": "@item()?['Oil Delivery[Address]']"
+                        },
+                        {
+                          "header": "DeliveryDate",
+                          "value": "@item()?['Oil Delivery[DeliveryDate]']"
+                        },
+                        {
+                          "header": "DeliveryNote",
+                          "value": "@item()?['Oil Delivery[DeliveryNote]']"
+                        },
+                        {
+                          "header": "DeliveryStatus",
+                          "value": "@item()?['Oil Delivery[DeliveryStatus]']"
+                        },
+                        {
+                          "header": "Distributor",
+                          "value": "@item()?['Oil Delivery[Distributor]']"
+                        },
+                        {
+                          "header": "Eircode",
+                          "value": "@item()?['Oil Delivery[Eircode]']"
+                        },
+                        {
+                          "header": "FillRestriction",
+                          "value": "@item()?['Oil Delivery[FillRestriction]']"
+                        },
+                        {
+                          "header": "FuelType",
+                          "value": "@item()?['Oil Delivery[FuelType]']"
+                        },
+                        {
+                          "header": "LatestVolumePercent",
+                          "value": "@item()?['Oil Delivery[LatestVolumePercent]']"
+                        },
+                        {
+                          "header": "Mobile",
+                          "value": "@item()?['Oil Delivery[Mobile]']"
+                        },
+                        {
+                          "header": "MPRN",
+                          "value": "@item()?['Oil Delivery[MPRN]']"
+                        },
+                        {
+                          "header": "LatestVolumeReading",
+                          "value": "@item()?['Oil Delivery[LatestVolumeReading]']"
+                        },
+                        {
+                          "header": "Name",
+                          "value": "@item()?['Oil Delivery[Name]']"
+                        },
+                        {
+                          "header": "OrderStatus",
+                          "value": "@item()?['Oil Delivery[OrderStatus]']"
+                        },
+                        {
+                          "header": "PropertyType",
+                          "value": "@item()?['Oil Delivery[PropertyType]']"
+                        },
+                        {
+                          "header": "Status",
+                          "value": "@item()?['Oil Delivery[Status]']"
+                        },
+                        {
+                          "header": "SubmitDate",
+                          "value": "@item()?['Oil Delivery[SubmitDate]']"
+                        },
+                        {
+                          "header": "TankID",
+                          "value": "@item()?['Oil Delivery[TankID]']"
+                        },
+                        {
+                          "header": "AssignedAgent",
+                          "value": "@item()?['Oil Delivery[AssignedAgent]']"
+                        },
+                        {
+                          "header": "Capacity",
+                          "value": "@item()?['Oil Delivery[Capacity]']"
+                        },
+                        {
+                          "header": "ContactStrikes",
+                          "value": "@item()?['Oil Delivery[ContactStrikes]']"
+                        },
+                        {
+                          "header": "CRN",
+                          "value": "@item()?['Oil Delivery[CRN]']"
+                        },
+                        {
+                          "header": "ID",
+                          "value": "@item()?['Oil Delivery[ID]']"
+                        },
+                        {
+                          "header": "TotalCount",
+                          "value": "@item()?['Oil Delivery[TotalCount]']"
+                        },
+                        {
+                          "header": "Volume",
+                          "value": "@item()?['Oil Delivery[Volume]']"
+                        }
+                      ]
+                    },
+                    "runAfter": {
+                      "Compose": [
+                        "SUCCEEDED"
+                      ]
+                    }
+                  },
+                  "Create_file": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "https://prepaypower.sharepoint.com/sites/PPP-RetentionTeam",
+                        "folderPath": "/Documents All/DT - Oil Delivery - Test",
+                        "name": "Oil Delivery - @{formatDateTime(convertFromUtc(utcNow(),'GMT Standard Time'),'yyyy-MM-dd')}.csv",
+                        "body": "@body('Create_CSV_table')"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "CreateFile",
+                        "connectionName": "shared_sharepointonline"
+                      }
+                    },
+                    "runAfter": {
+                      "Create_CSV_table": [
+                        "SUCCEEDED"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "PPP Oil Retention OilDelivery Scheduled Getdatafro",
+              "actionName": "Catch",
+              "snippet": {
+                "type": "Scope",
+                "actions": {
+                  "Send_an_email_from_a_shared_mailbox_(V2)": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "emailMessage/MailboxAddress": "digital.transformation@prepaypower.ie",
+                        "emailMessage/To": "Pedro.Moreira@prepaypower.ie",
+                        "emailMessage/Subject": "Flow Failed: PPP Oil Retention - Oil Delivery - Get Data from Power BI",
+                        "emailMessage/Body": "<p>The scheduled flow <strong>@{workflow().tags.flowDisplayName}</strong> has failed.</p><p><strong>Failed action:</strong> @{coalesce(result('Try')?[0]?['name'], 'Unknown')}</p><p><strong>Error:</strong> @{coalesce(result('Try')?[0]?['error']?['message'], 'See run history for details.')}</p><p><a href=\"@{concat('https://make.powerautomate.com/environments/', workflow().tags.environmentName, '/flows/', workflow().name, '/runs/', workflow().run.name)}\">View run history</a></p>",
+                        "emailMessage/Importance": "High"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                        "operationId": "SharedMailboxSendEmailV2",
+                        "connectionName": "shared_office365-1"
+                      }
+                    },
+                    "runAfter": {}
+                  },
+                  "Terminate": {
+                    "type": "Terminate",
+                    "inputs": {
+                      "runStatus": "Failed",
+                      "runError": {
+                        "code": "OilDeliveryExportFailed",
+                        "message": "@{coalesce(result('Try')?[0]?['error']?['message'], 'Oil Delivery Power BI export flow failed - see run history for details.')}"
+                      }
+                    },
+                    "runAfter": {
+                      "Send_an_email_from_a_shared_mailbox_(V2)": [
+                        "SUCCEEDED"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Try",
+              "snippet": {
+                "type": "Scope",
+                "actions": {
+                  "Update_file_properties-copy_1-copy": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "https://prepaypower.sharepoint.com/sites/CXOperations",
+                        "table": "c47be5c5-4cee-47df-a3b8-55d46c80d112",
+                        "id": "@triggerBody()?['ID']",
+                        "item/Status/Value": "Processing"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "PatchFileItem",
+                        "connectionName": "shared_sharepointonline"
+                      }
+                    },
+                    "metadata": {
+                      "operationMetadataId": "81b8cd52-a458-46b6-95a4-ee9561c989d1"
+                    }
+                  },
+                  "Copy_file_-_To_DTA_sharepoint": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "https://prepaypower.sharepoint.com/sites/CXOperations",
+                        "parameters/sourceFileId": "@outputs('Update_file_properties-copy_1-copy')?['body/{Identifier}']",
+                        "parameters/destinationDataset": "https://prepaypower.sharepoint.com/sites/DigitalTransformationArchiveLists",
+                        "parameters/destinationFolderPath": "/Shared Documents",
+                        "parameters/nameConflictBehavior": 2
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "CopyFileAsync",
+                        "connectionName": "shared_sharepointonline"
+                      }
+                    },
+                    "runAfter": {
+                      "Update_file_properties-copy_1-copy": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "e6e4a765-6d54-43cc-a817-27cd1b872919"
+                    }
+                  },
+                  "Get_file_properties-_from_DTA_Sharepoint": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "https://prepaypower.sharepoint.com/sites/DigitalTransformationArchiveLists",
+                        "table": "aa140fef-afb6-45a2-8465-f3b33be1348e",
+                        "id": "@outputs('Copy_file_-_To_DTA_sharepoint')?['body/ItemId']"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "GetFileItem",
+                        "connectionName": "shared_sharepointonline"
+                      }
+                    },
+                    "runAfter": {
+                      "Copy_file_-_To_DTA_sharepoint": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "ad4e8dd7-4b1c-4989-800b-e895e0fc6c40"
+                    }
+                  },
+                  "Get_tables": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "source": "sites/prepaypower.sharepoint.com,b108ad21-3d7b-4654-86af-cd61a17995f5,1d787e6c-183b-4c27-8c0a-8f5325e4e44b",
+                        "drive": "b!Ia0IsXs9VEaGr81hoXmV9Wx-eB07GCdMjAqPUyXk5EvvDxSqtq-iRYRl87M74TSO",
+                        "file": "@outputs('Get_file_properties-_from_DTA_Sharepoint')?['body/{Identifier}']"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                        "operationId": "GetTables",
+                        "connectionName": "shared_excelonlinebusiness-1"
+                      }
+                    },
+                    "runAfter": {
+                      "Get_file_properties-_from_DTA_Sharepoint": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "bfef8693-99b2-4f1b-adfd-9914a00788f9",
+                      "tableId": null
+                    }
+                  },
+                  "List_rows_present_in_a_table": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "source": "sites/prepaypower.sharepoint.com,b108ad21-3d7b-4654-86af-cd61a17995f5,1d787e6c-183b-4c27-8c0a-8f5325e4e44b",
+                        "drive": "b!Ia0IsXs9VEaGr81hoXmV9Wx-eB07GCdMjAqPUyXk5EvvDxSqtq-iRYRl87M74TSO",
+                        "file": "@outputs('Get_file_properties-_from_DTA_Sharepoint')?['body/{Identifier}']",
+                        "table": "@body('Get_tables')['value'][0]['name']"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                        "operationId": "GetItems",
+                        "connectionName": "shared_excelonlinebusiness-1"
+                      }
+                    },
+                    "runAfter": {
+                      "Get_tables": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "6be7924a-579c-4cff-9beb-89a7ef3b1b21",
+                      "tableId": "@body('Get_tables')['value'][0]['name']"
+                    }
+                  },
+                  "Parse_JSON": {
+                    "type": "ParseJson",
+                    "inputs": {
+                      "content": "@outputs('List_rows_present_in_a_table')?['body/value']",
+                      "schema": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "@@odata.etag": {
+                              "type": "string"
+                            },
+                            "ItemInternalId": {
+                              "type": "string"
+                            },
+                            "CRN": {
+                              "type": "string"
+                            },
+                            "MPRN": {
+                              "type": "string"
+                            },
+                            "Tank ID": {
+                              "type": "string"
+                            },
+                            "Sensor Comms (M)": {
+                              "type": "string"
+                            },
+                            "Sensor Comms (A)": {
+                              "type": "string"
+                            },
+                            "BillingMode": {
+                              "type": "string"
+                            },
+                            "BillingTarget": {
+                              "type": "string"
+                            },
+                            "Capacity": {
+                              "type": "string"
+                            },
+                            "5am Morning Volume": {
+                              "type": "string"
+                            },
+                            "5am Morning Volume %": {
+                              "type": "string"
+                            },
+                            "First Read Tank Volume": {
+                              "type": "string"
+                            },
+                            "First Read Tank %": {
+                              "type": "string"
+                            },
+                            "Current Status": {
+                              "type": "string"
+                            },
+                            "Current Fill Factor": {
+                              "type": "string"
+                            },
+                            "Fill Restriction Status": {
+                              "type": "string"
+                            },
+                            "Anomalies Status": {
+                              "type": "string"
+                            },
+                            "Sale Date": {
+                              "type": "string"
+                            },
+                            "Sale Year": {
+                              "type": "string"
+                            },
+                            "Sale Month": {
+                              "type": "string"
+                            },
+                            "Sale Week": {
+                              "type": "string"
+                            },
+                            "Route": {
+                              "type": "string"
+                            },
+                            "CRN Install Booked On": {
+                              "type": "string"
+                            },
+                            "Sensor Install Date": {
+                              "type": "string"
+                            },
+                            "Sensor Install Year": {
+                              "type": "string"
+                            },
+                            "Sensor Install Month": {
+                              "type": "string"
+                            },
+                            "Sensor Install Week": {
+                              "type": "string"
+                            },
+                            "First Fill Date (Completed)": {
+                              "type": "string"
+                            },
+                            "Completed in Month": {
+                              "type": "string"
+                            },
+                            "Days to Completion": {
+                              "type": "string"
+                            },
+                            "Presenting Date": {
+                              "type": "string"
+                            },
+                            "Churn Reason": {
+                              "type": "string"
+                            },
+                            "Outcome": {
+                              "type": "string"
+                            },
+                            "Win/Loss Date": {
+                              "type": "string"
+                            },
+                            "Email": {
+                              "type": "string"
+                            },
+                            "Mobile": {
+                              "type": "string"
+                            },
+                            "Date of Customer Own Oil Reading (At First Fill)": {
+                              "type": "string"
+                            },
+                            "Customer Own Oil Volume (At First Fill)": {
+                              "type": "string"
+                            },
+                            "Date of Reading at Cancel": {
+                              "type": "string"
+                            },
+                            "Year of Reading at Cancel": {
+                              "type": "string"
+                            },
+                            "Month of Reading at Cancel": {
+                              "type": "string"
+                            },
+                            "Week of Reading at Cancel": {
+                              "type": "string"
+                            },
+                            "Reading at Cancel": {
+                              "type": "string"
+                            },
+                            "Usage Period Start Date": {
+                              "type": "string"
+                            },
+                            "Usage Period End Date": {
+                              "type": "string"
+                            },
+                            "Usage Period Oil Used": {
+                              "type": "string"
+                            },
+                            "Usage Period Oil Cost": {
+                              "type": "string"
+                            },
+                            "Current Daily Charge": {
+                              "type": "string"
+                            },
+                            "Total Deliveries": {
+                              "type": "string"
+                            },
+                            "Total Delivery Volume": {
+                              "type": "string"
+                            },
+                            "Old CRN": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "CRN",
+                            "Current Status",
+                            "5am Morning Volume %",
+                            "Fill Restriction Status"
+                          ]
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "List_rows_present_in_a_table": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "4fb7f2be-715a-4384-a557-43f8bae3838f"
+                    }
+                  },
+                  "Filter_array_-_Billed_-_No_Restrictions_-_Tank_Volume__20_to_30_percent": {
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@body('Parse_JSON')",
+                      "where": "@and(\r\n  equals(item()?['Current Status'], 'Billed'),\r\n  equals(item()?['Fill Restriction Status'], 'No Restriction'),\r\n  greater(int(item()?['5am Morning Volume %']), 30)\r\n)\r\n"
+                    },
+                    "runAfter": {
+                      "Parse_JSON": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Update_file_properties-copy_1-copy_2": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "https://prepaypower.sharepoint.com/sites/CXOperations",
+                        "table": "c47be5c5-4cee-47df-a3b8-55d46c80d112",
+                        "id": "@triggerBody()?['ID']",
+                        "item/Status/Value": "Sent"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "PatchFileItem",
+                        "connectionName": "shared_sharepointonline"
+                      }
+                    },
+                    "runAfter": {
+                      "Trigger_WhatsApp_Template": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "81b8cd52-a458-46b6-95a4-ee9561c989d1"
+                    }
+                  },
+                  "Apply_to_each": {
+                    "type": "Foreach",
+                    "foreach": "@body('Filter_array_-_Billed_-_No_Restrictions_-_Tank_Volume__20_to_30_percent')",
+                    "actions": {
+                      "Run_a_query_against_a_dataset": {
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "groupid": "c308ec0c-defe-4fef-8ae2-d0eb7d1a3ee0",
+                            "datasetid": "931ff45d-aed2-485d-94dd-caedba5195a0",
+                            "specification/query": "// DAX Query\nDEFINE\n\tVAR __DS0FilterTable = \n\t\tFILTER(\n\t\t\tKEEPFILTERS(VALUES('Customers Address'[CustomerID])),\n\t\t\t'Customers Address'[CustomerID] = @{items('Apply_to_each')['CRN']}\n\t\t)\n\n\tVAR __DS0Core = \n\t\tCALCULATETABLE(\n\t\t\tSUMMARIZE(\n\t\t\t\t'Customers Address',\n\t\t\t\t'Customers Address'[CustomerID],\n\t\t\t\t'Customers Address'[FullAddress],\n\t\t\t\t'Customers Address'[FirstName],\n\t\t\t\t'Customers Address'[MobileNo],\n\t\t\t\t'Customers Address'[SMSAllowed],\n\t\t\t\t'Customers Address'[CustomerRef]\n\t\t\t),\n\t\t\tKEEPFILTERS(__DS0FilterTable)\n\t\t)\n\nEVALUATE\n\t__DS0Core \n\nORDER BY\n\t'Customers Address'[CustomerID],\n\t'Customers Address'[FullAddress],\n\t'Customers Address'[FirstName],\n\t'Customers Address'[MobileNo],\n\t'Customers Address'[SMSAllowed],\n\t'Customers Address'[CustomerRef]\n",
+                            "specification/serializerSettings/includeNulls": false
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_powerbi",
+                            "operationId": "ExecuteDatasetQuery",
+                            "connectionName": "shared_powerbi-1"
+                          }
+                        }
+                      },
+                      "Parse_JSON_-_Customer_Details": {
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@outputs('Run_a_query_against_a_dataset')?['body/firstTableRows'][0]",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "Customers Address[CustomerID]": {
+                                "type": "integer"
+                              },
+                              "Customers Address[FullAddress]": {
+                                "type": "string"
+                              },
+                              "Customers Address[FirstName]": {
+                                "type": "string"
+                              },
+                              "Customers Address[MobileNo]": {
+                                "type": "string"
+                              },
+                              "Customers Address[SMSAllowed]": {
+                                "type": "boolean"
+                              },
+                              "Customers Address[CustomerRef]": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "runAfter": {
+                          "Run_a_query_against_a_dataset": [
+                            "Succeeded"
+                          ]
+                        }
+                      },
+                      "_SMS_Allowed_-_Exist_AND_is_TRUE": {
+                        "type": "Compose",
+                        "inputs": "@if(\r\n  contains(\r\n    outputs('Run_a_query_against_a_dataset')?['body']['firstTableRows'][0],\r\n    'Customers Address[SMSAllowed]'\r\n  ),\r\n  outputs('Run_a_query_against_a_dataset')?['body']['firstTableRows'][0]['Customers Address[SMSAllowed]'],\r\n  false\r\n)\r\n",
+                        "runAfter": {
+                          "Parse_JSON_-_Customer_Details": [
+                            "Succeeded"
+                          ]
+                        }
+                      },
+                      "Condition": {
+                        "type": "If",
+                        "expression": {
+                          "and": [
+                            {
+                              "equals": [
+                                "@outputs('_SMS_Allowed_-_Exist_AND_is_TRUE')",
+                                true
+                              ]
+                            }
+                          ]
+                        },
+                        "actions": {
+                          "Append_to_array_variable": {
+                            "type": "AppendToArrayVariable",
+                            "inputs": {
+                              "name": "List of Customers",
+                              "value": {
+                                "CRN": "@{items('Apply_to_each')['CRN']}",
+                                "Phone": "@{items('Apply_to_each')?['Mobile']}",
+                                "FirstName": "@{body('Parse_JSON_-_Customer_Details')?['Customers Address[FirstName]']}",
+                                "TankVolume": "@{items('Apply_to_each')['5am Morning Volume %']}",
+                                "SMSAllowed": "@{body('Parse_JSON_-_Customer_Details')?['Customers Address[SMSAllowed]']}"
+                              }
+                            }
+                          }
+                        },
+                        "else": {
+                          "actions": {
+                            "Compose_2": {
+                              "type": "Compose",
+                              "inputs": "@body('Parse_JSON_-_Customer_Details')"
+                            }
+                          }
+                        },
+                        "runAfter": {
+                          "_SMS_Allowed_-_Exist_AND_is_TRUE": [
+                            "Succeeded"
+                          ]
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "Filter_array_-_Billed_-_No_Restrictions_-_Tank_Volume__20_to_30_percent": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Compose": {
+                    "type": "Compose",
+                    "inputs": "@body('Select_-_Create_Customers_List_for_WA_Template')",
+                    "runAfter": {
+                      "Select_-_Create_Customers_List_for_WA_Template": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Select_-_Create_Customers_List_for_WA_Template": {
+                    "type": "Select",
+                    "inputs": {
+                      "from": "@variables('List of Customers')",
+                      "select": {
+                        "consumerContent": {
+                          "wa": "@{if(\r\n  startsWith(item()['Phone'], '353'), \r\n  item()['Phone'],\r\n  concat('353', item()['Phone'])\r\n)}"
+                        },
+                        "variables": {
+                          "1": "@{item()['FirstName']}",
+                          "2": "@{item()['TankVolume']}"
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "Apply_to_each": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "f6be3543-0022-41ec-9f36-a51c62bc88fe"
+                    }
+                  },
+                  "Trigger_WhatsApp_Template": {
+                    "type": "Scope",
+                    "actions": {
+                      "HTTP_-_GET_TOKEN": {
+                        "type": "Http",
+                        "inputs": {
+                          "uri": "https://lo.sentinel.liveperson.net/sentinel/api/account/644555/app/token",
+                          "method": "POST",
+                          "headers": {
+                            "Content-Type": "application/x-www-form-urlencoded"
+                          },
+                          "body": "v=1.0&grant_type=client_credentials&client_id=401d7661-6755-427f-ad97-edaed807846f&client_secret=4am95tsbdt03vi4jol5r5noqjg"
+                        },
+                        "runtimeConfiguration": {
+                          "contentTransfer": {
+                            "transferMode": "Chunked"
+                          }
+                        },
+                        "metadata": {
+                          "operationMetadataId": "97b56701-b0a9-4e21-a22a-d42a0342a444"
+                        }
+                      },
+                      "Parse_JSON_-_TOKEN_DETAILS": {
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@body('HTTP_-_GET_TOKEN')",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "access_token": {
+                                "type": "string"
+                              },
+                              "token_type": {
+                                "type": "string"
+                              },
+                              "expires_in": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "runAfter": {
+                          "HTTP_-_GET_TOKEN": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "2565bdd3-4a6a-4356-b775-08f6f45d3ad9"
+                        }
+                      },
+                      "HTTP_-_TRIGGER_WA_TEMPLATE": {
+                        "type": "Http",
+                        "inputs": {
+                          "uri": "https://proactive-messaging.z2.fs.liveperson.com/api/v2/account/644555/campaign",
+                          "method": "POST",
+                          "headers": {
+                            "Authorization": "Bearer @{body('Parse_JSON_-_TOKEN_DETAILS')?['access_token']}",
+                            "Content-Type": "application/json"
+                          },
+                          "body": {
+                            "campaignName": "Oil_Delivery_CX_Outreach",
+                            "skill": "WhatsApp_default",
+                            "templateId": "H653397033989462",
+                            "consent": true,
+                            "consumers": "@body('Select_-_Create_Customers_List_for_WA_Template')"
+                          }
+                        },
+                        "runAfter": {
+                          "Parse_JSON_-_TOKEN_DETAILS": [
+                            "Succeeded"
+                          ]
+                        },
+                        "runtimeConfiguration": {
+                          "contentTransfer": {
+                            "transferMode": "Chunked"
+                          }
+                        },
+                        "metadata": {
+                          "operationMetadataId": "34010958-e528-4a05-bb45-1a7bd15102fd"
+                        }
+                      },
+                      "Parse_JSON_-_WA_TEMPLATE_Response_": {
+                        "type": "ParseJson",
+                        "inputs": {
+                          "content": "@body('HTTP_-_TRIGGER_WA_TEMPLATE')",
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "proactiveCampaignId": {
+                                "type": "string"
+                              },
+                              "leCampaignId": {
+                                "type": "string"
+                              },
+                              "leEngagementId": {
+                                "type": "string"
+                              },
+                              "requestTraceId": {
+                                "type": "string"
+                              },
+                              "failedConsumers": {
+                                "type": "array"
+                              },
+                              "acceptedConsumers": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "phoneNumber": {
+                                      "type": "string"
+                                    },
+                                    "consumerContent": {
+                                      "type": "object",
+                                      "properties": {
+                                        "wa": {
+                                          "type": "string"
+                                        },
+                                        "sms": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "runAfter": {
+                          "HTTP_-_TRIGGER_WA_TEMPLATE": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "2565bdd3-4a6a-4356-b775-08f6f45d3ad9"
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "Compose": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "440142dc-44e0-423a-bc65-cc1373434b17"
+                    }
+                  },
+                  "Send_an_email_from_a_shared_mailbox_(V2)_1": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "emailMessage/MailboxAddress": "digital.transformation@prepaypower.ie",
+                        "emailMessage/To": "dxteam@prepaypower.ie; @{outputs('Update_file_properties-copy_1-copy_2')?['body/Author/Email']}",
+                        "emailMessage/Subject": "WhatsApp - Liverperson - Oil Delivery - Outreach to Oil Customers ",
+                        "emailMessage/Body": "<style>\n  /* Wrapper so it doesn't affect other Outlook elements */\n  .pa-email {\n    font-family: \"Segoe UI\", Arial, sans-serif;\n    font-size: 14px;\n    color: #1f2937;\n  }\n\n  /* Create HTML table output (default) is a plain <table> with no class.\n     Wrap it in a <div class=\"pa-email\"> and target all tables inside. */\n  .pa-email table {\n    width: 100%;\n    border-collapse: separate; /* allows rounded corners */\n    border-spacing: 0;\n    border: 1px solid #e5e7eb;\n    border-radius: 10px;\n    overflow: hidden; /* may be ignored by some Outlook clients, but OK */\n  }\n\n  .pa-email th {\n    background: #0f6cbd;\n    color: #ffffff;\n    font-weight: 600;\n    font-size: 13px;\n    text-align: left;\n    padding: 12px 14px;\n    border-bottom: 1px solid #0b5aa3;\n  }\n\n  .pa-email td {\n    padding: 12px 14px;\n    border-top: 1px solid #e5e7eb;\n    background: #ffffff;\n    vertical-align: top;\n  }\n\n  /* Zebra striping (works in most clients; Outlook desktop can be inconsistent) */\n  .pa-email tbody tr:nth-child(even) td {\n    background: #f9fafb;\n  }\n\n  /* Optional: tidy long numbers/text */\n  .pa-email td, .pa-email th {\n    word-break: break-word;\n  }\n</style>\n<div>\n<p style=\"margin:0 0 12px 0;\">Hi team,</p>\n\n<p style=\"margin:0 0 16px 0;\">\n  The WhatsApp campaign has been sent successfully.\n  <br>\n  <strong>LivePerson Campaign ID:</strong> <span style=\"font-family:Consolas, 'Courier New', monospace;\">@{body('Parse_JSON_-_WA_TEMPLATE_Response_')?['proactiveCampaignId']}</span>\n</p>\n\n<p style=\"margin:0 0 12px 0;\">\n  Below is the list of customers included in this campaign:\n</p>\n\n\n@{body('Create_HTML_table_1')}\n\n</div>\n\n",
+                        "emailMessage/Importance": "Normal"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                        "operationId": "SharedMailboxSendEmailV2",
+                        "connectionName": "shared_office365-1"
+                      }
+                    },
+                    "runAfter": {
+                      "Create_HTML_table_1": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Create_HTML_table_1": {
+                    "type": "Table",
+                    "inputs": {
+                      "from": "@variables('List of Customers')",
+                      "format": "HTML",
+                      "columns": [
+                        {
+                          "header": "CRN",
+                          "value": "@item()['CRN']"
+                        },
+                        {
+                          "header": "Name",
+                          "value": "@item()['FirstName']"
+                        },
+                        {
+                          "header": "Tank Volume",
+                          "value": "@item()['TankVolume']"
+                        }
+                      ]
+                    },
+                    "runAfter": {
+                      "Update_file_properties-copy_1-copy_2": [
+                        "Succeeded"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Trigger_WhatsApp_Template",
+              "snippet": {
+                "type": "Scope",
+                "actions": {
+                  "HTTP_-_GET_TOKEN": {
+                    "type": "Http",
+                    "inputs": {
+                      "uri": "https://lo.sentinel.liveperson.net/sentinel/api/account/644555/app/token",
+                      "method": "POST",
+                      "headers": {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                      },
+                      "body": "v=1.0&grant_type=client_credentials&client_id=401d7661-6755-427f-ad97-edaed807846f&client_secret=4am95tsbdt03vi4jol5r5noqjg"
+                    },
+                    "runtimeConfiguration": {
+                      "contentTransfer": {
+                        "transferMode": "Chunked"
+                      }
+                    },
+                    "metadata": {
+                      "operationMetadataId": "97b56701-b0a9-4e21-a22a-d42a0342a444"
+                    }
+                  },
+                  "Parse_JSON_-_TOKEN_DETAILS": {
+                    "type": "ParseJson",
+                    "inputs": {
+                      "content": "@body('HTTP_-_GET_TOKEN')",
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "access_token": {
+                            "type": "string"
+                          },
+                          "token_type": {
+                            "type": "string"
+                          },
+                          "expires_in": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "HTTP_-_GET_TOKEN": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "2565bdd3-4a6a-4356-b775-08f6f45d3ad9"
+                    }
+                  },
+                  "HTTP_-_TRIGGER_WA_TEMPLATE": {
+                    "type": "Http",
+                    "inputs": {
+                      "uri": "https://proactive-messaging.z2.fs.liveperson.com/api/v2/account/644555/campaign",
+                      "method": "POST",
+                      "headers": {
+                        "Authorization": "Bearer @{body('Parse_JSON_-_TOKEN_DETAILS')?['access_token']}",
+                        "Content-Type": "application/json"
+                      },
+                      "body": {
+                        "campaignName": "Oil_Delivery_CX_Outreach",
+                        "skill": "WhatsApp_default",
+                        "templateId": "H653397033989462",
+                        "consent": true,
+                        "consumers": "@body('Select_-_Create_Customers_List_for_WA_Template')"
+                      }
+                    },
+                    "runAfter": {
+                      "Parse_JSON_-_TOKEN_DETAILS": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "contentTransfer": {
+                        "transferMode": "Chunked"
+                      }
+                    },
+                    "metadata": {
+                      "operationMetadataId": "34010958-e528-4a05-bb45-1a7bd15102fd"
+                    }
+                  },
+                  "Parse_JSON_-_WA_TEMPLATE_Response_": {
+                    "type": "ParseJson",
+                    "inputs": {
+                      "content": "@body('HTTP_-_TRIGGER_WA_TEMPLATE')",
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "proactiveCampaignId": {
+                            "type": "string"
+                          },
+                          "leCampaignId": {
+                            "type": "string"
+                          },
+                          "leEngagementId": {
+                            "type": "string"
+                          },
+                          "requestTraceId": {
+                            "type": "string"
+                          },
+                          "failedConsumers": {
+                            "type": "array"
+                          },
+                          "acceptedConsumers": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "phoneNumber": {
+                                  "type": "string"
+                                },
+                                "consumerContent": {
+                                  "type": "object",
+                                  "properties": {
+                                    "wa": {
+                                      "type": "string"
+                                    },
+                                    "sms": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "HTTP_-_TRIGGER_WA_TEMPLATE": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "2565bdd3-4a6a-4356-b775-08f6f45d3ad9"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Catch",
+              "snippet": {
+                "type": "Scope",
+                "actions": {
+                  "Filter_array": {
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@result('Try')",
+                      "where": "@or(equals(item()?['Status'], 'Failed'),equals(item()?['Status'], 'TimedOut'))\n"
+                    }
+                  },
+                  "Create_HTML_table": {
+                    "type": "Table",
+                    "inputs": {
+                      "from": "@body('Filter_array')",
+                      "format": "HTML",
+                      "columns": [
+                        {
+                          "header": "Action",
+                          "value": "@item()?['name']"
+                        },
+                        {
+                          "header": "Status",
+                          "value": "@item()?['Status']"
+                        },
+                        {
+                          "header": "ErrorMessage",
+                          "value": "@item()?['error']?['message']"
+                        }
+                      ]
+                    },
+                    "runAfter": {
+                      "Filter_array": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Send_an_email_from_a_shared_mailbox_(V2)": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "emailMessage/MailboxAddress": "digital.transformation@prepaypower.ie",
+                        "emailMessage/To": "Pedro.Moreira@prepaypower.ie",
+                        "emailMessage/Subject": "WhatsApp - Liverperson - Oil Delivery - Outreach to Oil Customers ",
+                        "emailMessage/Body": "<style>\ntable, td, th {  \n  border: 1px solid #ddd;\n  text-align: left;\n}\ntable {\n  border-collapse: collapse;\n  width: 100%;\n}\nth, td {\n  padding: 15px;\n}\n</style>\n@{body('Create_HTML_table')}\n\n<p><a href=\"@{concat('https://make.powerautomate.com/environments/',\r\noutputs('Workflow')['tags']['environmentName'],\r\n'/flows/',\r\noutputs('Workflow')['name'],\r\n'/runs/',\r\noutputs('Workflow')['run']['name'])}\"> Go to flow </a></p>\n\n\n",
+                        "emailMessage/Importance": "Normal"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                        "operationId": "SharedMailboxSendEmailV2",
+                        "connectionName": "shared_office365-1"
+                      }
+                    },
+                    "runAfter": {
+                      "Create_HTML_table": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Update_file_properties-copy_1-copy_1": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "https://prepaypower.sharepoint.com/sites/CXOperations",
+                        "table": "c47be5c5-4cee-47df-a3b8-55d46c80d112",
+                        "id": "@triggerBody()?['ID']",
+                        "item/Status/Value": "Failed"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "PatchFileItem",
+                        "connectionName": "shared_sharepointonline"
+                      }
+                    },
+                    "runAfter": {
+                      "Send_an_email_from_a_shared_mailbox_(V2)": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "81b8cd52-a458-46b6-95a4-ee9561c989d1"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "shared_powerbi": {
+      "displayName": "Power BI",
+      "icon": "$(graph)",
+      "count": 1,
+      "operations": {
+        "ExecuteDatasetQuery": {
+          "displayName": "List rows (query)",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "PPP Oil Retention OilDelivery Scheduled Getdatafro",
+              "actionName": "Run_a_query_against_a_dataset",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "groupid": "c308ec0c-defe-4fef-8ae2-d0eb7d1a3ee0",
+                    "datasetid": "15c334db-0c75-4028-958b-e6a44af3cfb5",
+                    "specification/query": "// DAX Query\nDEFINE\n\tVAR __DS0FilterTable = \n\t\tTREATAS({\"Not Delivered\"}, 'Oil Delivery'[DeliveryStatus])\n\n\tVAR __DS0FilterTable2 = \n\t\tTREATAS({\"Not Confirmed\"}, 'Oil Delivery'[OrderStatus])\n\n\tVAR __DS0FilterTable3 = \n\t\tTREATAS({\"COT\",\n\t\t\t\"Billed\"}, 'Oil Delivery'[Status])\n\n\tVAR __DS0Core = \n\t\tCALCULATETABLE(\n\t\t\tSUMMARIZE(\n\t\t\t\t'Oil Delivery',\n\t\t\t\t'Oil Delivery'[Address],\n\t\t\t\t'Oil Delivery'[DeliveryDate],\n\t\t\t\t'Oil Delivery'[DeliveryNote],\n\t\t\t\t'Oil Delivery'[DeliveryStatus],\n\t\t\t\t'Oil Delivery'[Distributor],\n\t\t\t\t'Oil Delivery'[Eircode],\n\t\t\t\t'Oil Delivery'[FillRestriction],\n\t\t\t\t'Oil Delivery'[FuelType],\n\t\t\t\t'Oil Delivery'[LatestVolumePercent],\n\t\t\t\t'Oil Delivery'[Mobile],\n\t\t\t\t'Oil Delivery'[MPRN],\n\t\t\t\t'Oil Delivery'[LatestVolumeReading],\n\t\t\t\t'Oil Delivery'[Name],\n\t\t\t\t'Oil Delivery'[OrderStatus],\n\t\t\t\t'Oil Delivery'[PropertyType],\n\t\t\t\t'Oil Delivery'[Status],\n\t\t\t\t'Oil Delivery'[SubmitDate],\n\t\t\t\t'Oil Delivery'[TankID],\n\t\t\t\t'Oil Delivery'[AssignedAgent],\n\t\t\t\t'Oil Delivery'[Capacity],\n\t\t\t\t'Oil Delivery'[ContactStrikes],\n\t\t\t\t'Oil Delivery'[CRN],\n\t\t\t\t'Oil Delivery'[ID],\n\t\t\t\t'Oil Delivery'[TotalCount],\n\t\t\t\t'Oil Delivery'[Volume]\n\t\t\t),\n\t\t\tKEEPFILTERS(__DS0FilterTable),\n\t\t\tKEEPFILTERS(__DS0FilterTable2),\n\t\t\tKEEPFILTERS(__DS0FilterTable3)\n\t\t)\n\n\nEVALUATE\n\t__DS0Core \n\nORDER BY\n\t'Oil Delivery'[DeliveryDate],\n\t'Oil Delivery'[Address],\n\t'Oil Delivery'[DeliveryNote],\n\t'Oil Delivery'[DeliveryStatus],\n\t'Oil Delivery'[Distributor],\n\t'Oil Delivery'[Eircode],\n\t'Oil Delivery'[FillRestriction],\n\t'Oil Delivery'[FuelType],\n\t'Oil Delivery'[LatestVolumePercent],\n\t'Oil Delivery'[Mobile],\n\t'Oil Delivery'[MPRN],\n\t'Oil Delivery'[LatestVolumeReading],\n\t'Oil Delivery'[Name],\n\t'Oil Delivery'[OrderStatus],\n\t'Oil Delivery'[PropertyType],\n\t'Oil Delivery'[Status],\n\t'Oil Delivery'[SubmitDate],\n\t'Oil Delivery'[TankID],\n\t'Oil Delivery'[AssignedAgent],\n\t'Oil Delivery'[Capacity],\n\t'Oil Delivery'[ContactStrikes],\n\t'Oil Delivery'[CRN],\n\t'Oil Delivery'[ID],\n\t'Oil Delivery'[TotalCount],\n\t'Oil Delivery'[Volume]\n",
+                    "specification/serializerSettings/includeNulls": false
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_powerbi",
+                    "operationId": "ExecuteDatasetQuery",
+                    "connectionName": "shared_powerbi"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "groupid",
+            "datasetid",
+            "specification/query",
+            "specification/serializerSettings/includeNulls"
+          ]
+        }
+      },
+      "connectionNames": [
+        "shared_powerbi"
+      ]
+    },
+    "Compose": {
+      "displayName": "Compose",
+      "icon": "$(edit)",
+      "count": 12,
+      "operations": {
+        "Compose": {
+          "displayName": "Compose",
+          "count": 12,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "PPP Oil Retention OilDelivery Scheduled Getdatafro",
+              "actionName": "Compose",
+              "snippet": {
+                "type": "Compose",
+                "inputs": "@outputs('Run_a_query_against_a_dataset')?['body/firstTableRows']"
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery ArchiveSPlist",
+              "actionName": "Compose",
+              "snippet": {
+                "type": "Compose",
+                "inputs": "tes"
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Workflow",
+              "snippet": {
+                "type": "Compose",
+                "inputs": "@workflow()"
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "_SMS_Allowed_-_Exist_AND_is_TRUE",
+              "snippet": {
+                "type": "Compose",
+                "inputs": "@if(\r\n  contains(\r\n    outputs('Run_a_query_against_a_dataset')?['body']['firstTableRows'][0],\r\n    'Customers Address[SMSAllowed]'\r\n  ),\r\n  outputs('Run_a_query_against_a_dataset')?['body']['firstTableRows'][0]['Customers Address[SMSAllowed]'],\r\n  false\r\n)\r\n"
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Compose_2",
+              "snippet": {
+                "type": "Compose",
+                "inputs": "@body('Parse_JSON_-_Customer_Details')"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Table": {
+      "displayName": "Create HTML table",
+      "icon": "$(table)",
+      "count": 3,
+      "operations": {
+        "Table": {
+          "displayName": "Table",
+          "count": 3,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "PPP Oil Retention OilDelivery Scheduled Getdatafro",
+              "actionName": "Create_CSV_table",
+              "snippet": {
+                "type": "Table",
+                "inputs": {
+                  "from": "@outputs('Compose')",
+                  "format": "CSV",
+                  "columns": [
+                    {
+                      "header": "Address",
+                      "value": "@item()?['Oil Delivery[Address]']"
+                    },
+                    {
+                      "header": "DeliveryDate",
+                      "value": "@item()?['Oil Delivery[DeliveryDate]']"
+                    },
+                    {
+                      "header": "DeliveryNote",
+                      "value": "@item()?['Oil Delivery[DeliveryNote]']"
+                    },
+                    {
+                      "header": "DeliveryStatus",
+                      "value": "@item()?['Oil Delivery[DeliveryStatus]']"
+                    },
+                    {
+                      "header": "Distributor",
+                      "value": "@item()?['Oil Delivery[Distributor]']"
+                    },
+                    {
+                      "header": "Eircode",
+                      "value": "@item()?['Oil Delivery[Eircode]']"
+                    },
+                    {
+                      "header": "FillRestriction",
+                      "value": "@item()?['Oil Delivery[FillRestriction]']"
+                    },
+                    {
+                      "header": "FuelType",
+                      "value": "@item()?['Oil Delivery[FuelType]']"
+                    },
+                    {
+                      "header": "LatestVolumePercent",
+                      "value": "@item()?['Oil Delivery[LatestVolumePercent]']"
+                    },
+                    {
+                      "header": "Mobile",
+                      "value": "@item()?['Oil Delivery[Mobile]']"
+                    },
+                    {
+                      "header": "MPRN",
+                      "value": "@item()?['Oil Delivery[MPRN]']"
+                    },
+                    {
+                      "header": "LatestVolumeReading",
+                      "value": "@item()?['Oil Delivery[LatestVolumeReading]']"
+                    },
+                    {
+                      "header": "Name",
+                      "value": "@item()?['Oil Delivery[Name]']"
+                    },
+                    {
+                      "header": "OrderStatus",
+                      "value": "@item()?['Oil Delivery[OrderStatus]']"
+                    },
+                    {
+                      "header": "PropertyType",
+                      "value": "@item()?['Oil Delivery[PropertyType]']"
+                    },
+                    {
+                      "header": "Status",
+                      "value": "@item()?['Oil Delivery[Status]']"
+                    },
+                    {
+                      "header": "SubmitDate",
+                      "value": "@item()?['Oil Delivery[SubmitDate]']"
+                    },
+                    {
+                      "header": "TankID",
+                      "value": "@item()?['Oil Delivery[TankID]']"
+                    },
+                    {
+                      "header": "AssignedAgent",
+                      "value": "@item()?['Oil Delivery[AssignedAgent]']"
+                    },
+                    {
+                      "header": "Capacity",
+                      "value": "@item()?['Oil Delivery[Capacity]']"
+                    },
+                    {
+                      "header": "ContactStrikes",
+                      "value": "@item()?['Oil Delivery[ContactStrikes]']"
+                    },
+                    {
+                      "header": "CRN",
+                      "value": "@item()?['Oil Delivery[CRN]']"
+                    },
+                    {
+                      "header": "ID",
+                      "value": "@item()?['Oil Delivery[ID]']"
+                    },
+                    {
+                      "header": "TotalCount",
+                      "value": "@item()?['Oil Delivery[TotalCount]']"
+                    },
+                    {
+                      "header": "Volume",
+                      "value": "@item()?['Oil Delivery[Volume]']"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Create_HTML_table_1",
+              "snippet": {
+                "type": "Table",
+                "inputs": {
+                  "from": "@variables('List of Customers')",
+                  "format": "HTML",
+                  "columns": [
+                    {
+                      "header": "CRN",
+                      "value": "@item()['CRN']"
+                    },
+                    {
+                      "header": "Name",
+                      "value": "@item()['FirstName']"
+                    },
+                    {
+                      "header": "Tank Volume",
+                      "value": "@item()['TankVolume']"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Create_HTML_table",
+              "snippet": {
+                "type": "Table",
+                "inputs": {
+                  "from": "@body('Filter_array')",
+                  "format": "HTML",
+                  "columns": [
+                    {
+                      "header": "Action",
+                      "value": "@item()?['name']"
+                    },
+                    {
+                      "header": "Status",
+                      "value": "@item()?['Status']"
+                    },
+                    {
+                      "header": "ErrorMessage",
+                      "value": "@item()?['error']?['message']"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "shared_sharepointonline": {
+      "displayName": "SharePoint",
+      "icon": "$(database)",
+      "count": 8,
+      "operations": {
+        "CreateFile": {
+          "displayName": "Create file",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "PPP Oil Retention OilDelivery Scheduled Getdatafro",
+              "actionName": "Create_file",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://prepaypower.sharepoint.com/sites/PPP-RetentionTeam",
+                    "folderPath": "/Documents All/DT - Oil Delivery - Test",
+                    "name": "Oil Delivery - @{formatDateTime(convertFromUtc(utcNow(),'GMT Standard Time'),'yyyy-MM-dd')}.csv",
+                    "body": "@body('Create_CSV_table')"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "operationId": "CreateFile",
+                    "connectionName": "shared_sharepointonline"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "dataset",
+            "folderPath",
+            "name",
+            "body"
+          ]
+        },
+        "GetItems": {
+          "displayName": "Get items",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery ArchiveSPlist",
+              "actionName": "Get_items",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://prepaypower.sharepoint.com",
+                    "table": "9d2dd0ee-7858-4b1e-aee9-f246bf6bb88a",
+                    "$filter": "Created lt '@{startOfDay(addDays(utcNow(), -30))}'"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "operationId": "GetItems",
+                    "connectionName": "shared_sharepointonline"
+                  }
+                },
+                "runtimeConfiguration": {
+                  "paginationPolicy": {
+                    "minimumItemCount": 100000
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "dataset",
+            "table",
+            "$filter"
+          ]
+        },
+        "GetOnNewFileItems": {
+          "displayName": "GetOnNewFileItems",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "_trigger_:When_a_file_is_created_(properties_only)",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://prepaypower.sharepoint.com/sites/CXOperations",
+                    "table": "c47be5c5-4cee-47df-a3b8-55d46c80d112",
+                    "folderPath": "/Shared Documents/WhatsApp - Oil Proactive Messages - File Drop"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "operationId": "GetOnNewFileItems",
+                    "connectionName": "shared_sharepointonline"
+                  }
+                },
+                "recurrence": {
+                  "frequency": "Minute",
+                  "interval": 1
+                },
+                "splitOn": "@triggerOutputs()?['body/value']"
+              }
+            }
+          ],
+          "paramKeys": [
+            "dataset",
+            "table",
+            "folderPath"
+          ]
+        },
+        "PatchFileItem": {
+          "displayName": "PatchFileItem",
+          "count": 3,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Update_file_properties-copy_1-copy",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://prepaypower.sharepoint.com/sites/CXOperations",
+                    "table": "c47be5c5-4cee-47df-a3b8-55d46c80d112",
+                    "id": "@triggerBody()?['ID']",
+                    "item/Status/Value": "Processing"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "operationId": "PatchFileItem",
+                    "connectionName": "shared_sharepointonline"
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Update_file_properties-copy_1-copy_2",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://prepaypower.sharepoint.com/sites/CXOperations",
+                    "table": "c47be5c5-4cee-47df-a3b8-55d46c80d112",
+                    "id": "@triggerBody()?['ID']",
+                    "item/Status/Value": "Sent"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "operationId": "PatchFileItem",
+                    "connectionName": "shared_sharepointonline"
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Update_file_properties-copy_1-copy_1",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://prepaypower.sharepoint.com/sites/CXOperations",
+                    "table": "c47be5c5-4cee-47df-a3b8-55d46c80d112",
+                    "id": "@triggerBody()?['ID']",
+                    "item/Status/Value": "Failed"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "operationId": "PatchFileItem",
+                    "connectionName": "shared_sharepointonline"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "dataset",
+            "table",
+            "id",
+            "item/Status/Value"
+          ]
+        },
+        "CopyFileAsync": {
+          "displayName": "CopyFileAsync",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Copy_file_-_To_DTA_sharepoint",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://prepaypower.sharepoint.com/sites/CXOperations",
+                    "parameters/sourceFileId": "@outputs('Update_file_properties-copy_1-copy')?['body/{Identifier}']",
+                    "parameters/destinationDataset": "https://prepaypower.sharepoint.com/sites/DigitalTransformationArchiveLists",
+                    "parameters/destinationFolderPath": "/Shared Documents",
+                    "parameters/nameConflictBehavior": 2
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "operationId": "CopyFileAsync",
+                    "connectionName": "shared_sharepointonline"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "dataset",
+            "parameters/sourceFileId",
+            "parameters/destinationDataset",
+            "parameters/destinationFolderPath",
+            "parameters/nameConflictBehavior"
+          ]
+        },
+        "GetFileItem": {
+          "displayName": "GetFileItem",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Get_file_properties-_from_DTA_Sharepoint",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://prepaypower.sharepoint.com/sites/DigitalTransformationArchiveLists",
+                    "table": "aa140fef-afb6-45a2-8465-f3b33be1348e",
+                    "id": "@outputs('Copy_file_-_To_DTA_sharepoint')?['body/ItemId']"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "operationId": "GetFileItem",
+                    "connectionName": "shared_sharepointonline"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "dataset",
+            "table",
+            "id"
+          ]
+        }
+      },
+      "connectionNames": [
+        "shared_sharepointonline"
+      ]
+    },
+    "shared_office365-1": {
+      "displayName": "office365-1",
+      "icon": "$(plug)",
+      "count": 3,
+      "operations": {
+        "SharedMailboxSendEmailV2": {
+          "displayName": "SharedMailboxSendEmailV2",
+          "count": 3,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "PPP Oil Retention OilDelivery Scheduled Getdatafro",
+              "actionName": "Send_an_email_from_a_shared_mailbox_(V2)",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "emailMessage/MailboxAddress": "digital.transformation@prepaypower.ie",
+                    "emailMessage/To": "Pedro.Moreira@prepaypower.ie",
+                    "emailMessage/Subject": "Flow Failed: PPP Oil Retention - Oil Delivery - Get Data from Power BI",
+                    "emailMessage/Body": "<p>The scheduled flow <strong>@{workflow().tags.flowDisplayName}</strong> has failed.</p><p><strong>Failed action:</strong> @{coalesce(result('Try')?[0]?['name'], 'Unknown')}</p><p><strong>Error:</strong> @{coalesce(result('Try')?[0]?['error']?['message'], 'See run history for details.')}</p><p><a href=\"@{concat('https://make.powerautomate.com/environments/', workflow().tags.environmentName, '/flows/', workflow().name, '/runs/', workflow().run.name)}\">View run history</a></p>",
+                    "emailMessage/Importance": "High"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                    "operationId": "SharedMailboxSendEmailV2",
+                    "connectionName": "shared_office365-1"
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Send_an_email_from_a_shared_mailbox_(V2)_1",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "emailMessage/MailboxAddress": "digital.transformation@prepaypower.ie",
+                    "emailMessage/To": "dxteam@prepaypower.ie; @{outputs('Update_file_properties-copy_1-copy_2')?['body/Author/Email']}",
+                    "emailMessage/Subject": "WhatsApp - Liverperson - Oil Delivery - Outreach to Oil Customers ",
+                    "emailMessage/Body": "<style>\n  /* Wrapper so it doesn't affect other Outlook elements */\n  .pa-email {\n    font-family: \"Segoe UI\", Arial, sans-serif;\n    font-size: 14px;\n    color: #1f2937;\n  }\n\n  /* Create HTML table output (default) is a plain <table> with no class.\n     Wrap it in a <div class=\"pa-email\"> and target all tables inside. */\n  .pa-email table {\n    width: 100%;\n    border-collapse: separate; /* allows rounded corners */\n    border-spacing: 0;\n    border: 1px solid #e5e7eb;\n    border-radius: 10px;\n    overflow: hidden; /* may be ignored by some Outlook clients, but OK */\n  }\n\n  .pa-email th {\n    background: #0f6cbd;\n    color: #ffffff;\n    font-weight: 600;\n    font-size: 13px;\n    text-align: left;\n    padding: 12px 14px;\n    border-bottom: 1px solid #0b5aa3;\n  }\n\n  .pa-email td {\n    padding: 12px 14px;\n    border-top: 1px solid #e5e7eb;\n    background: #ffffff;\n    vertical-align: top;\n  }\n\n  /* Zebra striping (works in most clients; Outlook desktop can be inconsistent) */\n  .pa-email tbody tr:nth-child(even) td {\n    background: #f9fafb;\n  }\n\n  /* Optional: tidy long numbers/text */\n  .pa-email td, .pa-email th {\n    word-break: break-word;\n  }\n</style>\n<div>\n<p style=\"margin:0 0 12px 0;\">Hi team,</p>\n\n<p style=\"margin:0 0 16px 0;\">\n  The WhatsApp campaign has been sent successfully.\n  <br>\n  <strong>LivePerson Campaign ID:</strong> <span style=\"font-family:Consolas, 'Courier New', monospace;\">@{body('Parse_JSON_-_WA_TEMPLATE_Response_')?['proactiveCampaignId']}</span>\n</p>\n\n<p style=\"margin:0 0 12px 0;\">\n  Below is the list of customers included in this campaign:\n</p>\n\n\n@{body('Create_HTML_table_1')}\n\n</div>\n\n",
+                    "emailMessage/Importance": "Normal"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                    "operationId": "SharedMailboxSendEmailV2",
+                    "connectionName": "shared_office365-1"
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Send_an_email_from_a_shared_mailbox_(V2)",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "emailMessage/MailboxAddress": "digital.transformation@prepaypower.ie",
+                    "emailMessage/To": "Pedro.Moreira@prepaypower.ie",
+                    "emailMessage/Subject": "WhatsApp - Liverperson - Oil Delivery - Outreach to Oil Customers ",
+                    "emailMessage/Body": "<style>\ntable, td, th {  \n  border: 1px solid #ddd;\n  text-align: left;\n}\ntable {\n  border-collapse: collapse;\n  width: 100%;\n}\nth, td {\n  padding: 15px;\n}\n</style>\n@{body('Create_HTML_table')}\n\n<p><a href=\"@{concat('https://make.powerautomate.com/environments/',\r\noutputs('Workflow')['tags']['environmentName'],\r\n'/flows/',\r\noutputs('Workflow')['name'],\r\n'/runs/',\r\noutputs('Workflow')['run']['name'])}\"> Go to flow </a></p>\n\n\n",
+                    "emailMessage/Importance": "Normal"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                    "operationId": "SharedMailboxSendEmailV2",
+                    "connectionName": "shared_office365-1"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "emailMessage/MailboxAddress",
+            "emailMessage/To",
+            "emailMessage/Subject",
+            "emailMessage/Body",
+            "emailMessage/Importance"
+          ]
+        }
+      },
+      "connectionNames": [
+        "shared_office365-1"
+      ]
+    },
+    "Terminate": {
+      "displayName": "Terminate",
+      "icon": "$(stop)",
+      "count": 3,
+      "operations": {
+        "Terminate": {
+          "displayName": "Terminate",
+          "count": 3,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "PPP Oil Retention OilDelivery Scheduled Getdatafro",
+              "actionName": "Terminate",
+              "snippet": {
+                "type": "Terminate",
+                "inputs": {
+                  "runStatus": "Failed",
+                  "runError": {
+                    "code": "OilDeliveryExportFailed",
+                    "message": "@{coalesce(result('Try')?[0]?['error']?['message'], 'Oil Delivery Power BI export flow failed - see run history for details.')}"
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery ArchiveSPlist",
+              "actionName": "Terminate",
+              "snippet": {
+                "type": "Terminate",
+                "inputs": {
+                  "runStatus": "Cancelled"
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Terminate",
+              "snippet": {
+                "type": "Terminate",
+                "inputs": {
+                  "runStatus": "Cancelled"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "If": {
+      "displayName": "Condition",
+      "icon": "$(git-branch)",
+      "count": 8,
+      "operations": {
+        "If": {
+          "displayName": "If",
+          "count": 8,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery ArchiveSPlist",
+              "actionName": "Condition_-_Is_In_Development",
+              "snippet": {
+                "type": "If",
+                "expression": {
+                  "and": [
+                    {
+                      "equals": [
+                        1,
+                        true
+                      ]
+                    }
+                  ]
+                },
+                "actions": {
+                  "Terminate": {
+                    "type": "Terminate",
+                    "inputs": {
+                      "runStatus": "Cancelled"
+                    }
+                  }
+                },
+                "else": {
+                  "actions": {}
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Condition",
+              "snippet": {
+                "type": "If",
+                "expression": {
+                  "and": [
+                    {
+                      "equals": [
+                        "@outputs('_SMS_Allowed_-_Exist_AND_is_TRUE')",
+                        true
+                      ]
+                    }
+                  ]
+                },
+                "actions": {
+                  "Append_to_array_variable": {
+                    "type": "AppendToArrayVariable",
+                    "inputs": {
+                      "name": "List of Customers",
+                      "value": {
+                        "CRN": "@{items('Apply_to_each')['CRN']}",
+                        "Phone": "@{items('Apply_to_each')?['Mobile']}",
+                        "FirstName": "@{body('Parse_JSON_-_Customer_Details')?['Customers Address[FirstName]']}",
+                        "TankVolume": "@{items('Apply_to_each')['5am Morning Volume %']}",
+                        "SMSAllowed": "@{body('Parse_JSON_-_Customer_Details')?['Customers Address[SMSAllowed]']}"
+                      }
+                    }
+                  }
+                },
+                "else": {
+                  "actions": {
+                    "Compose_2": {
+                      "type": "Compose",
+                      "inputs": "@body('Parse_JSON_-_Customer_Details')"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Condition_-_Is_In_Development",
+              "snippet": {
+                "type": "If",
+                "expression": {
+                  "and": [
+                    {
+                      "equals": [
+                        "@parameters('isInDevelopment (dta_isInDevelopment)')",
+                        true
+                      ]
+                    }
+                  ]
+                },
+                "actions": {
+                  "Terminate": {
+                    "type": "Terminate",
+                    "inputs": {
+                      "runStatus": "Cancelled"
+                    }
+                  }
+                },
+                "else": {
+                  "actions": {}
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Condition_-_isInDevelopment_2",
+              "snippet": {
+                "actions": {},
+                "else": {
+                  "actions": {
+                    "Delete_a_row": {
+                      "metadata": {
+                        "014BJ62TZ6425STXUJHZAY5HWVJQ3EIV7V": "/Oil Refills/Gross Churn Reduction Iniatitives/Auto-Refills/SMS Refills.xlsx",
+                        "operationMetadataId": "11143faf-966d-4e06-b85c-fb03dd719f11",
+                        "tableId": "{41CF0904-C379-4324-9917-776D3B02EFFD}",
+                        "017FGUGAWAJSLHXP3CMNGJTWNQ3PKIZLH4": "/Oil.xlsx"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/prepaypower.sharepoint.com,1517afe3-df2a-4ece-9f7a-32c69fdbb0a7,af947b3f-265a-4e06-ab2a-700379b82c0e",
+                          "drive": "b!468XFSrfzk6fejLGn9uwpz97lK9aJgZOqypwA3m4LA6ka6Pf14-9R4-zKCjKPPCs",
+                          "file": "014BJ62TZ6425STXUJHZAY5HWVJQ3EIV7V",
+                          "table": "{41CF0904-C379-4324-9917-776D3B02EFFD}",
+                          "idColumn": "Customer CRN",
+                          "id": "@outputs('Create_item_-_Oil_Delivery')?['body/CustomerCRN']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "operationId": "DeleteItem",
+                          "connectionName": "shared_excelonlinebusiness_1"
+                        }
+                      }
+                    }
+                  }
+                },
+                "expression": {
+                  "and": [
+                    {
+                      "equals": [
+                        "@parameters('isInDevelopment (dta_isInDevelopment)')",
+                        true
+                      ]
+                    }
+                  ]
+                },
+                "type": "If"
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Condition_-_WA_Message_FAILED",
+              "snippet": {
+                "actions": {
+                  "Fallback_-_Customer_Phone": {
+                    "metadata": {
+                      "operationMetadataId": "1c87b754-218b-4e52-b546-09c5c0686b02"
+                    },
+                    "type": "Compose",
+                    "inputs": "@items('Apply_to_each')?['consumerId']"
+                  },
+                  "Filter_Customer_Details_List": {
+                    "runAfter": {
+                      "Fallback_-_Customer_Phone": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "46459802-5c27-4b6e-a7c2-2bc52e2a2fa9"
+                    },
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@body('Select_-_Create_Fallback_List_with_Customer_Details')",
+                      "where": "@equals(concat('+', item()['sms']),outputs('Fallback_-_Customer_Phone'))"
+                    }
+                  },
+                  "POST_-_Send_SMS_Message": {
+                    "runAfter": {
+                      "Filter_Customer_Details_List": [
+                        "Succeeded"
+                      ]
+                    },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "body/destination": "@body('Filter_Customer_Details_List')[0]['sms']",
+                        "body/source": "PrepayPower",
+                        "body/clientMessageId": "Oil Delivery - Fallback SMS",
+                        "body/text": "Hi @{body('Filter_Customer_Details_List')[0]['CustomerName']}, PrepayPower Oil here! Your oil tank is running low and is currently at @{body('Filter_Customer_Details_List')[0]['TankVolume']} full. Your Delivery date is currently booked for the @{body('Filter_Customer_Details_List')[0]['OfferedDate']} Please let us know if this date suits you or not by clicking here: www.prepaypower.ie/oil-delivery?crn=@{body('Filter_Customer_Details_List')[0]['CustomerCRN']} Please submit response by 2pm to secure this delivery date. Thanks, PrepayPower Oil\n"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_dta-5f8x8-20sms-5f19cf3490887ebbe4",
+                        "operationId": "POST",
+                        "connectionName": "shared_dta-5f8x8-20sms-5f19cf3490887ebbe4"
+                      }
+                    }
+                  }
+                },
+                "else": {
+                  "actions": {}
+                },
+                "expression": {
+                  "and": [
+                    {
+                      "equals": [
+                        "@items('Apply_to_each')?['messageStatus']",
+                        "FAILED"
+                      ]
+                    }
+                  ]
+                },
+                "type": "If"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "shared_excelonlinebusiness-1": {
+      "displayName": "excelonlinebusiness-1",
+      "icon": "$(plug)",
+      "count": 2,
+      "operations": {
+        "GetTables": {
+          "displayName": "GetTables",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Get_tables",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "source": "sites/prepaypower.sharepoint.com,b108ad21-3d7b-4654-86af-cd61a17995f5,1d787e6c-183b-4c27-8c0a-8f5325e4e44b",
+                    "drive": "b!Ia0IsXs9VEaGr81hoXmV9Wx-eB07GCdMjAqPUyXk5EvvDxSqtq-iRYRl87M74TSO",
+                    "file": "@outputs('Get_file_properties-_from_DTA_Sharepoint')?['body/{Identifier}']"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                    "operationId": "GetTables",
+                    "connectionName": "shared_excelonlinebusiness-1"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "source",
+            "drive",
+            "file"
+          ]
+        },
+        "GetItems": {
+          "displayName": "Get items",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "List_rows_present_in_a_table",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "source": "sites/prepaypower.sharepoint.com,b108ad21-3d7b-4654-86af-cd61a17995f5,1d787e6c-183b-4c27-8c0a-8f5325e4e44b",
+                    "drive": "b!Ia0IsXs9VEaGr81hoXmV9Wx-eB07GCdMjAqPUyXk5EvvDxSqtq-iRYRl87M74TSO",
+                    "file": "@outputs('Get_file_properties-_from_DTA_Sharepoint')?['body/{Identifier}']",
+                    "table": "@body('Get_tables')['value'][0]['name']"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                    "operationId": "GetItems",
+                    "connectionName": "shared_excelonlinebusiness-1"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "source",
+            "drive",
+            "file",
+            "table"
+          ]
+        }
+      },
+      "connectionNames": [
+        "shared_excelonlinebusiness-1"
+      ]
+    },
+    "ParseJson": {
+      "displayName": "Parse JSON",
+      "icon": "$(json)",
+      "count": 12,
+      "operations": {
+        "ParseJson": {
+          "displayName": "ParseJson",
+          "count": 12,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Parse_JSON",
+              "snippet": {
+                "type": "ParseJson",
+                "inputs": {
+                  "content": "@outputs('List_rows_present_in_a_table')?['body/value']",
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "@@odata.etag": {
+                          "type": "string"
+                        },
+                        "ItemInternalId": {
+                          "type": "string"
+                        },
+                        "CRN": {
+                          "type": "string"
+                        },
+                        "MPRN": {
+                          "type": "string"
+                        },
+                        "Tank ID": {
+                          "type": "string"
+                        },
+                        "Sensor Comms (M)": {
+                          "type": "string"
+                        },
+                        "Sensor Comms (A)": {
+                          "type": "string"
+                        },
+                        "BillingMode": {
+                          "type": "string"
+                        },
+                        "BillingTarget": {
+                          "type": "string"
+                        },
+                        "Capacity": {
+                          "type": "string"
+                        },
+                        "5am Morning Volume": {
+                          "type": "string"
+                        },
+                        "5am Morning Volume %": {
+                          "type": "string"
+                        },
+                        "First Read Tank Volume": {
+                          "type": "string"
+                        },
+                        "First Read Tank %": {
+                          "type": "string"
+                        },
+                        "Current Status": {
+                          "type": "string"
+                        },
+                        "Current Fill Factor": {
+                          "type": "string"
+                        },
+                        "Fill Restriction Status": {
+                          "type": "string"
+                        },
+                        "Anomalies Status": {
+                          "type": "string"
+                        },
+                        "Sale Date": {
+                          "type": "string"
+                        },
+                        "Sale Year": {
+                          "type": "string"
+                        },
+                        "Sale Month": {
+                          "type": "string"
+                        },
+                        "Sale Week": {
+                          "type": "string"
+                        },
+                        "Route": {
+                          "type": "string"
+                        },
+                        "CRN Install Booked On": {
+                          "type": "string"
+                        },
+                        "Sensor Install Date": {
+                          "type": "string"
+                        },
+                        "Sensor Install Year": {
+                          "type": "string"
+                        },
+                        "Sensor Install Month": {
+                          "type": "string"
+                        },
+                        "Sensor Install Week": {
+                          "type": "string"
+                        },
+                        "First Fill Date (Completed)": {
+                          "type": "string"
+                        },
+                        "Completed in Month": {
+                          "type": "string"
+                        },
+                        "Days to Completion": {
+                          "type": "string"
+                        },
+                        "Presenting Date": {
+                          "type": "string"
+                        },
+                        "Churn Reason": {
+                          "type": "string"
+                        },
+                        "Outcome": {
+                          "type": "string"
+                        },
+                        "Win/Loss Date": {
+                          "type": "string"
+                        },
+                        "Email": {
+                          "type": "string"
+                        },
+                        "Mobile": {
+                          "type": "string"
+                        },
+                        "Date of Customer Own Oil Reading (At First Fill)": {
+                          "type": "string"
+                        },
+                        "Customer Own Oil Volume (At First Fill)": {
+                          "type": "string"
+                        },
+                        "Date of Reading at Cancel": {
+                          "type": "string"
+                        },
+                        "Year of Reading at Cancel": {
+                          "type": "string"
+                        },
+                        "Month of Reading at Cancel": {
+                          "type": "string"
+                        },
+                        "Week of Reading at Cancel": {
+                          "type": "string"
+                        },
+                        "Reading at Cancel": {
+                          "type": "string"
+                        },
+                        "Usage Period Start Date": {
+                          "type": "string"
+                        },
+                        "Usage Period End Date": {
+                          "type": "string"
+                        },
+                        "Usage Period Oil Used": {
+                          "type": "string"
+                        },
+                        "Usage Period Oil Cost": {
+                          "type": "string"
+                        },
+                        "Current Daily Charge": {
+                          "type": "string"
+                        },
+                        "Total Deliveries": {
+                          "type": "string"
+                        },
+                        "Total Delivery Volume": {
+                          "type": "string"
+                        },
+                        "Old CRN": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "CRN",
+                        "Current Status",
+                        "5am Morning Volume %",
+                        "Fill Restriction Status"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Parse_JSON_-_Customer_Details",
+              "snippet": {
+                "type": "ParseJson",
+                "inputs": {
+                  "content": "@outputs('Run_a_query_against_a_dataset')?['body/firstTableRows'][0]",
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "Customers Address[CustomerID]": {
+                        "type": "integer"
+                      },
+                      "Customers Address[FullAddress]": {
+                        "type": "string"
+                      },
+                      "Customers Address[FirstName]": {
+                        "type": "string"
+                      },
+                      "Customers Address[MobileNo]": {
+                        "type": "string"
+                      },
+                      "Customers Address[SMSAllowed]": {
+                        "type": "boolean"
+                      },
+                      "Customers Address[CustomerRef]": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Parse_JSON_-_TOKEN_DETAILS",
+              "snippet": {
+                "type": "ParseJson",
+                "inputs": {
+                  "content": "@body('HTTP_-_GET_TOKEN')",
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "access_token": {
+                        "type": "string"
+                      },
+                      "token_type": {
+                        "type": "string"
+                      },
+                      "expires_in": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Parse_JSON_-_WA_TEMPLATE_Response_",
+              "snippet": {
+                "type": "ParseJson",
+                "inputs": {
+                  "content": "@body('HTTP_-_TRIGGER_WA_TEMPLATE')",
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "proactiveCampaignId": {
+                        "type": "string"
+                      },
+                      "leCampaignId": {
+                        "type": "string"
+                      },
+                      "leEngagementId": {
+                        "type": "string"
+                      },
+                      "requestTraceId": {
+                        "type": "string"
+                      },
+                      "failedConsumers": {
+                        "type": "array"
+                      },
+                      "acceptedConsumers": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "phoneNumber": {
+                              "type": "string"
+                            },
+                            "consumerContent": {
+                              "type": "object",
+                              "properties": {
+                                "wa": {
+                                  "type": "string"
+                                },
+                                "sms": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Parse_JSON_-_TOKEN_DETAILS",
+              "snippet": {
+                "type": "ParseJson",
+                "inputs": {
+                  "content": "@body('HTTP_-_GET_TOKEN')",
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "access_token": {
+                        "type": "string"
+                      },
+                      "token_type": {
+                        "type": "string"
+                      },
+                      "expires_in": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Query": {
+      "displayName": "Filter array",
+      "icon": "$(filter)",
+      "count": 4,
+      "operations": {
+        "Query": {
+          "displayName": "Query",
+          "count": 4,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Filter_array_-_Billed_-_No_Restrictions_-_Tank_Volume__20_to_30_percent",
+              "snippet": {
+                "type": "Query",
+                "inputs": {
+                  "from": "@body('Parse_JSON')",
+                  "where": "@and(\r\n  equals(item()?['Current Status'], 'Billed'),\r\n  equals(item()?['Fill Restriction Status'], 'No Restriction'),\r\n  greater(int(item()?['5am Morning Volume %']), 30)\r\n)\r\n"
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Filter_array",
+              "snippet": {
+                "type": "Query",
+                "inputs": {
+                  "from": "@result('Try')",
+                  "where": "@or(equals(item()?['Status'], 'Failed'),equals(item()?['Status'], 'TimedOut'))\n"
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Filter_Customer_Details_List",
+              "snippet": {
+                "type": "Query",
+                "inputs": {
+                  "from": "@body('Select_-_Create_Fallback_List_with_Customer_Details')",
+                  "where": "@equals(concat('+', item()['sms']),outputs('Fallback_-_Customer_Phone'))"
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsAppLiveperson GetFailedProactiveMessages",
+              "actionName": "Filter_array",
+              "snippet": {
+                "type": "Query",
+                "inputs": {
+                  "from": "@body('Parse_JSON')",
+                  "where": "@equals(item()['proactiveCampaignId'],triggerBody()?['text_1'])"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Foreach": {
+      "displayName": "Apply to each",
+      "icon": "$(sync)",
+      "count": 3,
+      "operations": {
+        "Foreach": {
+          "displayName": "Foreach",
+          "count": 3,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Apply_to_each",
+              "snippet": {
+                "type": "Foreach",
+                "foreach": "@body('Filter_array_-_Billed_-_No_Restrictions_-_Tank_Volume__20_to_30_percent')",
+                "actions": {
+                  "Run_a_query_against_a_dataset": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "groupid": "c308ec0c-defe-4fef-8ae2-d0eb7d1a3ee0",
+                        "datasetid": "931ff45d-aed2-485d-94dd-caedba5195a0",
+                        "specification/query": "// DAX Query\nDEFINE\n\tVAR __DS0FilterTable = \n\t\tFILTER(\n\t\t\tKEEPFILTERS(VALUES('Customers Address'[CustomerID])),\n\t\t\t'Customers Address'[CustomerID] = @{items('Apply_to_each')['CRN']}\n\t\t)\n\n\tVAR __DS0Core = \n\t\tCALCULATETABLE(\n\t\t\tSUMMARIZE(\n\t\t\t\t'Customers Address',\n\t\t\t\t'Customers Address'[CustomerID],\n\t\t\t\t'Customers Address'[FullAddress],\n\t\t\t\t'Customers Address'[FirstName],\n\t\t\t\t'Customers Address'[MobileNo],\n\t\t\t\t'Customers Address'[SMSAllowed],\n\t\t\t\t'Customers Address'[CustomerRef]\n\t\t\t),\n\t\t\tKEEPFILTERS(__DS0FilterTable)\n\t\t)\n\nEVALUATE\n\t__DS0Core \n\nORDER BY\n\t'Customers Address'[CustomerID],\n\t'Customers Address'[FullAddress],\n\t'Customers Address'[FirstName],\n\t'Customers Address'[MobileNo],\n\t'Customers Address'[SMSAllowed],\n\t'Customers Address'[CustomerRef]\n",
+                        "specification/serializerSettings/includeNulls": false
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_powerbi",
+                        "operationId": "ExecuteDatasetQuery",
+                        "connectionName": "shared_powerbi-1"
+                      }
+                    }
+                  },
+                  "Parse_JSON_-_Customer_Details": {
+                    "type": "ParseJson",
+                    "inputs": {
+                      "content": "@outputs('Run_a_query_against_a_dataset')?['body/firstTableRows'][0]",
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "Customers Address[CustomerID]": {
+                            "type": "integer"
+                          },
+                          "Customers Address[FullAddress]": {
+                            "type": "string"
+                          },
+                          "Customers Address[FirstName]": {
+                            "type": "string"
+                          },
+                          "Customers Address[MobileNo]": {
+                            "type": "string"
+                          },
+                          "Customers Address[SMSAllowed]": {
+                            "type": "boolean"
+                          },
+                          "Customers Address[CustomerRef]": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "Run_a_query_against_a_dataset": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "_SMS_Allowed_-_Exist_AND_is_TRUE": {
+                    "type": "Compose",
+                    "inputs": "@if(\r\n  contains(\r\n    outputs('Run_a_query_against_a_dataset')?['body']['firstTableRows'][0],\r\n    'Customers Address[SMSAllowed]'\r\n  ),\r\n  outputs('Run_a_query_against_a_dataset')?['body']['firstTableRows'][0]['Customers Address[SMSAllowed]'],\r\n  false\r\n)\r\n",
+                    "runAfter": {
+                      "Parse_JSON_-_Customer_Details": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Condition": {
+                    "type": "If",
+                    "expression": {
+                      "and": [
+                        {
+                          "equals": [
+                            "@outputs('_SMS_Allowed_-_Exist_AND_is_TRUE')",
+                            true
+                          ]
+                        }
+                      ]
+                    },
+                    "actions": {
+                      "Append_to_array_variable": {
+                        "type": "AppendToArrayVariable",
+                        "inputs": {
+                          "name": "List of Customers",
+                          "value": {
+                            "CRN": "@{items('Apply_to_each')['CRN']}",
+                            "Phone": "@{items('Apply_to_each')?['Mobile']}",
+                            "FirstName": "@{body('Parse_JSON_-_Customer_Details')?['Customers Address[FirstName]']}",
+                            "TankVolume": "@{items('Apply_to_each')['5am Morning Volume %']}",
+                            "SMSAllowed": "@{body('Parse_JSON_-_Customer_Details')?['Customers Address[SMSAllowed]']}"
+                          }
+                        }
+                      }
+                    },
+                    "else": {
+                      "actions": {
+                        "Compose_2": {
+                          "type": "Compose",
+                          "inputs": "@body('Parse_JSON_-_Customer_Details')"
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "_SMS_Allowed_-_Exist_AND_is_TRUE": [
+                        "Succeeded"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Apply_to_each_2",
+              "snippet": {
+                "foreach": "@body('Parse_JSON__-_List_of_Items')",
+                "actions": {
+                  "Create_item_-_Oil_Delivery": {
+                    "metadata": {
+                      "operationMetadataId": "29fde724-e733-4f33-8146-2f92158553ae"
+                    },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "https://prepaypower.sharepoint.com",
+                        "table": "9d2dd0ee-7858-4b1e-aee9-f246bf6bb88a",
+                        "item/Title": "@items('Apply_to_each_2')?['Customer CRN']",
+                        "item/Status/Value": "Comms Sent",
+                        "item/NotificationChannel/Value": "WhatsApp",
+                        "item/CustomerFirstName": "@items('Apply_to_each_2')?['Customer First Name']",
+                        "item/CustomerLastName": "@items('Apply_to_each_2')?['Customer Last Name']",
+                        "item/CustomerCRN": "@items('Apply_to_each_2')?['Customer CRN']",
+                        "item/DateofDelivery": "@items('Apply_to_each_2')?['Date of Delivery']",
+                        "item/CustomerPhoneNumber": "@items('Apply_to_each_2')?['Customer Phone Number']",
+                        "item/TankVolume": "@items('Apply_to_each_2')?['Tank Volume ']",
+                        "item/SubmissionDate": "@utcNow()"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "PostItem",
+                        "connectionName": "shared_sharepointonline-1"
+                      }
+                    }
+                  },
+                  "Create_item_-_WhatsApp_Log": {
+                    "runAfter": {
+                      "Create_item_-_Oil_Delivery": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "3bc5dc10-15a8-4a2d-a977-cd8d4b448be6"
+                    },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "https://prepaypower.sharepoint.com/sites/Omni-ChannelToolIntegration",
+                        "table": "f5989d9f-500d-426e-817e-9a3ae92424b8",
+                        "item/CustomerName": "@{items('Apply_to_each_2')?['Customer First Name']} @{items('Apply_to_each_2')?['Customer Last Name']}",
+                        "item/CRN": "@items('Apply_to_each_2')?['Customer CRN']",
+                        "item/MobileNumber": "@if(\r\n  startsWith(item()['Customer Phone Number'], '353'), \r\n  item()['Customer Phone Number'],\r\n  concat('353', item()['Customer Phone Number'])\r\n)",
+                        "item/Template": "WhatsApp_oil",
+                        "item/Status/Value": "New",
+                        "item/OriginalItemId": "@outputs('Create_item_-_Oil_Delivery')?['body/ID']"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "PostItem",
+                        "connectionName": "shared_sharepointonline-1"
+                      }
+                    }
+                  },
+                  "Condition_-_isInDevelopment_2": {
+                    "actions": {},
+                    "runAfter": {
+                      "Create_item_-_WhatsApp_Log": [
+                        "Succeeded"
+                      ]
+                    },
+                    "else": {
+                      "actions": {
+                        "Delete_a_row": {
+                          "metadata": {
+                            "014BJ62TZ6425STXUJHZAY5HWVJQ3EIV7V": "/Oil Refills/Gross Churn Reduction Iniatitives/Auto-Refills/SMS Refills.xlsx",
+                            "operationMetadataId": "11143faf-966d-4e06-b85c-fb03dd719f11",
+                            "tableId": "{41CF0904-C379-4324-9917-776D3B02EFFD}",
+                            "017FGUGAWAJSLHXP3CMNGJTWNQ3PKIZLH4": "/Oil.xlsx"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/prepaypower.sharepoint.com,1517afe3-df2a-4ece-9f7a-32c69fdbb0a7,af947b3f-265a-4e06-ab2a-700379b82c0e",
+                              "drive": "b!468XFSrfzk6fejLGn9uwpz97lK9aJgZOqypwA3m4LA6ka6Pf14-9R4-zKCjKPPCs",
+                              "file": "014BJ62TZ6425STXUJHZAY5HWVJQ3EIV7V",
+                              "table": "{41CF0904-C379-4324-9917-776D3B02EFFD}",
+                              "idColumn": "Customer CRN",
+                              "id": "@outputs('Create_item_-_Oil_Delivery')?['body/CustomerCRN']"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "operationId": "DeleteItem",
+                              "connectionName": "shared_excelonlinebusiness_1"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "expression": {
+                      "and": [
+                        {
+                          "equals": [
+                            "@parameters('isInDevelopment (dta_isInDevelopment)')",
+                            true
+                          ]
+                        }
+                      ]
+                    },
+                    "type": "If"
+                  }
+                },
+                "type": "Foreach"
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Apply_to_each",
+              "snippet": {
+                "foreach": "@body('Parse_JSON_-_Fallback_List')",
+                "actions": {
+                  "Condition_-_WA_Message_FAILED": {
+                    "actions": {
+                      "Fallback_-_Customer_Phone": {
+                        "metadata": {
+                          "operationMetadataId": "1c87b754-218b-4e52-b546-09c5c0686b02"
+                        },
+                        "type": "Compose",
+                        "inputs": "@items('Apply_to_each')?['consumerId']"
+                      },
+                      "Filter_Customer_Details_List": {
+                        "runAfter": {
+                          "Fallback_-_Customer_Phone": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "46459802-5c27-4b6e-a7c2-2bc52e2a2fa9"
+                        },
+                        "type": "Query",
+                        "inputs": {
+                          "from": "@body('Select_-_Create_Fallback_List_with_Customer_Details')",
+                          "where": "@equals(concat('+', item()['sms']),outputs('Fallback_-_Customer_Phone'))"
+                        }
+                      },
+                      "POST_-_Send_SMS_Message": {
+                        "runAfter": {
+                          "Filter_Customer_Details_List": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "body/destination": "@body('Filter_Customer_Details_List')[0]['sms']",
+                            "body/source": "PrepayPower",
+                            "body/clientMessageId": "Oil Delivery - Fallback SMS",
+                            "body/text": "Hi @{body('Filter_Customer_Details_List')[0]['CustomerName']}, PrepayPower Oil here! Your oil tank is running low and is currently at @{body('Filter_Customer_Details_List')[0]['TankVolume']} full. Your Delivery date is currently booked for the @{body('Filter_Customer_Details_List')[0]['OfferedDate']} Please let us know if this date suits you or not by clicking here: www.prepaypower.ie/oil-delivery?crn=@{body('Filter_Customer_Details_List')[0]['CustomerCRN']} Please submit response by 2pm to secure this delivery date. Thanks, PrepayPower Oil\n"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_dta-5f8x8-20sms-5f19cf3490887ebbe4",
+                            "operationId": "POST",
+                            "connectionName": "shared_dta-5f8x8-20sms-5f19cf3490887ebbe4"
+                          }
+                        }
+                      }
+                    },
+                    "else": {
+                      "actions": {}
+                    },
+                    "expression": {
+                      "and": [
+                        {
+                          "equals": [
+                            "@items('Apply_to_each')?['messageStatus']",
+                            "FAILED"
+                          ]
+                        }
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "ace0725a-35cd-4aa2-a241-e4d234f68213"
+                    },
+                    "type": "If"
+                  }
+                },
+                "type": "Foreach"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "shared_powerbi-1": {
+      "displayName": "powerbi-1",
+      "icon": "$(plug)",
+      "count": 1,
+      "operations": {
+        "ExecuteDatasetQuery": {
+          "displayName": "List rows (query)",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Run_a_query_against_a_dataset",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "groupid": "c308ec0c-defe-4fef-8ae2-d0eb7d1a3ee0",
+                    "datasetid": "931ff45d-aed2-485d-94dd-caedba5195a0",
+                    "specification/query": "// DAX Query\nDEFINE\n\tVAR __DS0FilterTable = \n\t\tFILTER(\n\t\t\tKEEPFILTERS(VALUES('Customers Address'[CustomerID])),\n\t\t\t'Customers Address'[CustomerID] = @{items('Apply_to_each')['CRN']}\n\t\t)\n\n\tVAR __DS0Core = \n\t\tCALCULATETABLE(\n\t\t\tSUMMARIZE(\n\t\t\t\t'Customers Address',\n\t\t\t\t'Customers Address'[CustomerID],\n\t\t\t\t'Customers Address'[FullAddress],\n\t\t\t\t'Customers Address'[FirstName],\n\t\t\t\t'Customers Address'[MobileNo],\n\t\t\t\t'Customers Address'[SMSAllowed],\n\t\t\t\t'Customers Address'[CustomerRef]\n\t\t\t),\n\t\t\tKEEPFILTERS(__DS0FilterTable)\n\t\t)\n\nEVALUATE\n\t__DS0Core \n\nORDER BY\n\t'Customers Address'[CustomerID],\n\t'Customers Address'[FullAddress],\n\t'Customers Address'[FirstName],\n\t'Customers Address'[MobileNo],\n\t'Customers Address'[SMSAllowed],\n\t'Customers Address'[CustomerRef]\n",
+                    "specification/serializerSettings/includeNulls": false
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_powerbi",
+                    "operationId": "ExecuteDatasetQuery",
+                    "connectionName": "shared_powerbi-1"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "groupid",
+            "datasetid",
+            "specification/query",
+            "specification/serializerSettings/includeNulls"
+          ]
+        }
+      },
+      "connectionNames": [
+        "shared_powerbi-1"
+      ]
+    },
+    "AppendToArrayVariable": {
+      "displayName": "Variables",
+      "icon": "$(symbol-variable)",
+      "count": 1,
+      "operations": {
+        "AppendToArrayVariable": {
+          "displayName": "AppendToArrayVariable",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Append_to_array_variable",
+              "snippet": {
+                "type": "AppendToArrayVariable",
+                "inputs": {
+                  "name": "List of Customers",
+                  "value": {
+                    "CRN": "@{items('Apply_to_each')['CRN']}",
+                    "Phone": "@{items('Apply_to_each')?['Mobile']}",
+                    "FirstName": "@{body('Parse_JSON_-_Customer_Details')?['Customers Address[FirstName]']}",
+                    "TankVolume": "@{items('Apply_to_each')['5am Morning Volume %']}",
+                    "SMSAllowed": "@{body('Parse_JSON_-_Customer_Details')?['Customers Address[SMSAllowed]']}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Select": {
+      "displayName": "Select",
+      "icon": "$(list-selection)",
+      "count": 3,
+      "operations": {
+        "Select": {
+          "displayName": "Select",
+          "count": 3,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Select_-_Create_Customers_List_for_WA_Template",
+              "snippet": {
+                "type": "Select",
+                "inputs": {
+                  "from": "@variables('List of Customers')",
+                  "select": {
+                    "consumerContent": {
+                      "wa": "@{if(\r\n  startsWith(item()['Phone'], '353'), \r\n  item()['Phone'],\r\n  concat('353', item()['Phone'])\r\n)}"
+                    },
+                    "variables": {
+                      "1": "@{item()['FirstName']}",
+                      "2": "@{item()['TankVolume']}"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Select_-_Create_Customers_List_for_WA_Template",
+              "snippet": {
+                "type": "Select",
+                "inputs": {
+                  "from": "@body('Parse_JSON__-_List_of_Items')",
+                  "select": {
+                    "consumerContent": {
+                      "wa": "@if(\n  startsWith(item()['Customer Phone Number'], '353'), \n  item()['Customer Phone Number'],\n  concat('353', item()['Customer Phone Number'])\n)",
+                      "sms": "@if(\n  startsWith(item()['Customer Phone Number'], '353'), \n  item()['Customer Phone Number'],\n  concat('353', item()['Customer Phone Number'])\n)"
+                    },
+                    "variables": {
+                      "1": "@item()['Customer First Name']",
+                      "2": "@if(\n  contains(string(item()['Tank Volume ']), '%'),\n  item()['Tank Volume '],\n  if(\n    less(float(item()['Tank Volume ']), 1),\n    concat(string(mul(float(item()['Tank Volume ']), 100)), '%'),\n    concat(string(item()['Tank Volume ']), '%')\n  )\n)\n",
+                      "3": "@formatDateTime(\n  item()['Date of Delivery'], \n  'dd/MM/yyyy'\n)"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Select_-_Create_Fallback_List_with_Customer_Details",
+              "snippet": {
+                "type": "Select",
+                "inputs": {
+                  "from": "@body('Parse_JSON__-_List_of_Items')",
+                  "select": {
+                    "wa": "@if(\n  startsWith(item()['Customer Phone Number'], '353'), \n  item()['Customer Phone Number'],\n  concat('353', item()['Customer Phone Number'])\n)",
+                    "sms": "@if(\n  startsWith(item()['Customer Phone Number'], '353'), \n  item()['Customer Phone Number'],\n  concat('353', item()['Customer Phone Number'])\n)",
+                    "CustomerName": "@item()['Customer First Name']",
+                    "TankVolume": "@if(\r\n  contains(string(item()['Tank Volume ']), '%'),\r\n  item()['Tank Volume '],\r\n  if(\r\n    less(float(item()['Tank Volume ']), 1),\r\n    concat(string(mul(float(item()['Tank Volume ']), 100)), '%'),\r\n    concat(string(item()['Tank Volume ']), '%')\r\n  )\r\n)",
+                    "OfferedDate": "@formatDateTime(\r\n  item()['Date of Delivery'], \r\n  'dd/MM/yyyy'\r\n)",
+                    "CustomerCRN": "@item()['Customer CRN']"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Http": {
+      "displayName": "HTTP",
+      "icon": "$(globe)",
+      "count": 6,
+      "operations": {
+        "Http": {
+          "displayName": "Http",
+          "count": 6,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "HTTP_-_GET_TOKEN",
+              "snippet": {
+                "type": "Http",
+                "inputs": {
+                  "uri": "https://lo.sentinel.liveperson.net/sentinel/api/account/644555/app/token",
+                  "method": "POST",
+                  "headers": {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                  },
+                  "body": "v=1.0&grant_type=client_credentials&client_id=401d7661-6755-427f-ad97-edaed807846f&client_secret=4am95tsbdt03vi4jol5r5noqjg"
+                },
+                "runtimeConfiguration": {
+                  "contentTransfer": {
+                    "transferMode": "Chunked"
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "HTTP_-_TRIGGER_WA_TEMPLATE",
+              "snippet": {
+                "type": "Http",
+                "inputs": {
+                  "uri": "https://proactive-messaging.z2.fs.liveperson.com/api/v2/account/644555/campaign",
+                  "method": "POST",
+                  "headers": {
+                    "Authorization": "Bearer @{body('Parse_JSON_-_TOKEN_DETAILS')?['access_token']}",
+                    "Content-Type": "application/json"
+                  },
+                  "body": {
+                    "campaignName": "Oil_Delivery_CX_Outreach",
+                    "skill": "WhatsApp_default",
+                    "templateId": "H653397033989462",
+                    "consent": true,
+                    "consumers": "@body('Select_-_Create_Customers_List_for_WA_Template')"
+                  }
+                },
+                "runtimeConfiguration": {
+                  "contentTransfer": {
+                    "transferMode": "Chunked"
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "HTTP_-_GET_TOKEN",
+              "snippet": {
+                "type": "Http",
+                "inputs": {
+                  "uri": "https://lo.sentinel.liveperson.net/sentinel/api/account/644555/app/token",
+                  "method": "POST",
+                  "headers": {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                  },
+                  "body": "v=1.0&grant_type=client_credentials&client_id=401d7661-6755-427f-ad97-edaed807846f&client_secret=4am95tsbdt03vi4jol5r5noqjg"
+                },
+                "runtimeConfiguration": {
+                  "contentTransfer": {
+                    "transferMode": "Chunked"
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "HTTP_-_TRIGGER_WA_TEMPLATE",
+              "snippet": {
+                "type": "Http",
+                "inputs": {
+                  "uri": "https://proactive-messaging.z2.fs.liveperson.com/api/v2/account/644555/campaign",
+                  "method": "POST",
+                  "headers": {
+                    "Authorization": "Bearer @{body('Parse_JSON_-_TOKEN_DETAILS')?['access_token']}",
+                    "Content-Type": "application/json"
+                  },
+                  "body": {
+                    "campaignName": "Confirm_Oil_Delivery",
+                    "skill": "WhatsApp_oil",
+                    "templateId": "H326370362391792",
+                    "consent": true,
+                    "consumers": "@body('Select_-_Create_Customers_List_for_WA_Template')"
+                  }
+                },
+                "runtimeConfiguration": {
+                  "contentTransfer": {
+                    "transferMode": "Chunked"
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsAppLiveperson GetFailedProactiveMessages",
+              "actionName": "HTTP",
+              "snippet": {
+                "type": "Http",
+                "inputs": {
+                  "method": "POST",
+                  "uri": "https://lo.cx-reporting.liveperson.net/api/account/644555/app/prmsg/transactions/",
+                  "headers": {
+                    "Authorization": "Bearer @{body('Extract_Token')?['access_token']}"
+                  },
+                  "queries": {
+                    "attemptedStartTime": "@{outputs('attemptStart')}",
+                    "attemptedEndTime": "@{outputs('attemptEnd')}",
+                    "v": "2.0"
+                  },
+                  "body": {
+                    "offset": 0,
+                    "limit": 1000,
+                    "filters": {
+                      "channels": [
+                        "wa"
+                      ]
+                    }
+                  }
+                },
+                "runtimeConfiguration": {
+                  "contentTransfer": {
+                    "transferMode": "Chunked"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "InitializeVariable": {
+      "displayName": "Variables",
+      "icon": "$(symbol-variable)",
+      "count": 2,
+      "operations": {
+        "InitializeVariable": {
+          "displayName": "InitializeVariable",
+          "count": 2,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+              "actionName": "Initialize_variable",
+              "snippet": {
+                "type": "InitializeVariable",
+                "inputs": {
+                  "variables": [
+                    {
+                      "name": "List of Customers",
+                      "type": "array"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Initialize_variable_-_List_of_Items",
+              "snippet": {
+                "type": "InitializeVariable",
+                "inputs": {
+                  "variables": [
+                    {
+                      "name": "List of Items",
+                      "type": "array"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "shared_sharepointonline-1": {
+      "displayName": "sharepointonline-1",
+      "icon": "$(plug)",
+      "count": 5,
+      "operations": {
+        "PostItem": {
+          "displayName": "Add a new row",
+          "count": 2,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Create_item_-_Oil_Delivery",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://prepaypower.sharepoint.com",
+                    "table": "9d2dd0ee-7858-4b1e-aee9-f246bf6bb88a",
+                    "item/Title": "@items('Apply_to_each_2')?['Customer CRN']",
+                    "item/Status/Value": "Comms Sent",
+                    "item/NotificationChannel/Value": "WhatsApp",
+                    "item/CustomerFirstName": "@items('Apply_to_each_2')?['Customer First Name']",
+                    "item/CustomerLastName": "@items('Apply_to_each_2')?['Customer Last Name']",
+                    "item/CustomerCRN": "@items('Apply_to_each_2')?['Customer CRN']",
+                    "item/DateofDelivery": "@items('Apply_to_each_2')?['Date of Delivery']",
+                    "item/CustomerPhoneNumber": "@items('Apply_to_each_2')?['Customer Phone Number']",
+                    "item/TankVolume": "@items('Apply_to_each_2')?['Tank Volume ']",
+                    "item/SubmissionDate": "@utcNow()"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "operationId": "PostItem",
+                    "connectionName": "shared_sharepointonline-1"
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Create_item_-_WhatsApp_Log",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://prepaypower.sharepoint.com/sites/Omni-ChannelToolIntegration",
+                    "table": "f5989d9f-500d-426e-817e-9a3ae92424b8",
+                    "item/CustomerName": "@{items('Apply_to_each_2')?['Customer First Name']} @{items('Apply_to_each_2')?['Customer Last Name']}",
+                    "item/CRN": "@items('Apply_to_each_2')?['Customer CRN']",
+                    "item/MobileNumber": "@if(\r\n  startsWith(item()['Customer Phone Number'], '353'), \r\n  item()['Customer Phone Number'],\r\n  concat('353', item()['Customer Phone Number'])\r\n)",
+                    "item/Template": "WhatsApp_oil",
+                    "item/Status/Value": "New",
+                    "item/OriginalItemId": "@outputs('Create_item_-_Oil_Delivery')?['body/ID']"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "operationId": "PostItem",
+                    "connectionName": "shared_sharepointonline-1"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "dataset",
+            "table",
+            "item/Title",
+            "item/Status/Value",
+            "item/NotificationChannel/Value",
+            "item/CustomerFirstName",
+            "item/CustomerLastName",
+            "item/CustomerCRN",
+            "item/DateofDelivery",
+            "item/CustomerPhoneNumber",
+            "item/TankVolume",
+            "item/SubmissionDate",
+            "item/CustomerName",
+            "item/CRN",
+            "item/MobileNumber",
+            "item/Template",
+            "item/OriginalItemId"
+          ]
+        },
+        "GetItems": {
+          "displayName": "Get items",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsAppLiveperson OilDelivery ReceiveHTTPrequest",
+              "actionName": "Get_items",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://prepaypower.sharepoint.com/sites/Omni-ChannelToolIntegration",
+                    "table": "f5989d9f-500d-426e-817e-9a3ae92424b8",
+                    "$filter": "MobileNumber eq '@{body('Parse_JSON')?['userPhone']}' and Created gt '@{startOfDay(utcNow())}'"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "operationId": "GetItems",
+                    "connectionName": "shared_sharepointonline-1"
+                  }
+                },
+                "runtimeConfiguration": {
+                  "paginationPolicy": {
+                    "minimumItemCount": 100000
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "dataset",
+            "table",
+            "$filter"
+          ]
+        },
+        "PatchItem": {
+          "displayName": "Update a row",
+          "count": 2,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsAppLiveperson OilDelivery ReceiveHTTPrequest",
+              "actionName": "Update_item",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://prepaypower.sharepoint.com/",
+                    "table": "9d2dd0ee-7858-4b1e-aee9-f246bf6bb88a",
+                    "id": "@body('Saved_Item_JSON')?['OriginalItemId']",
+                    "item/Title": "@body('Saved_Item_JSON')?['CRN']",
+                    "item/Status/Value": "@if(equals(body('Parse_JSON')?['status'], 'accept'), 'Date Accepted', 'Date Rejected')",
+                    "item/FeedbackfromCustomer": "@if(equals(body('Parse_JSON')?['status'], 'accept'), '', body('Parse_JSON')?['deliveryNote'])"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "operationId": "PatchItem",
+                    "connectionName": "shared_sharepointonline-1"
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsAppLiveperson OilDelivery ReceiveHTTPrequest",
+              "actionName": "Update_item_-_WhatsApp_Log",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://prepaypower.sharepoint.com/sites/Omni-ChannelToolIntegration",
+                    "table": "f5989d9f-500d-426e-817e-9a3ae92424b8",
+                    "id": "@body('Saved_Item_JSON')?['ID']",
+                    "item/Status/Value": "Completed"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "operationId": "PatchItem",
+                    "connectionName": "shared_sharepointonline-1"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "dataset",
+            "table",
+            "id",
+            "item/Title",
+            "item/Status/Value",
+            "item/FeedbackfromCustomer"
+          ]
+        }
+      },
+      "connectionNames": [
+        "shared_sharepointonline-1"
+      ]
+    },
+    "shared_excelonlinebusiness_1": {
+      "displayName": "excelonlinebusiness 1",
+      "icon": "$(plug)",
+      "count": 3,
+      "operations": {
+        "DeleteItem": {
+          "displayName": "Delete item",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Delete_a_row",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "source": "sites/prepaypower.sharepoint.com,1517afe3-df2a-4ece-9f7a-32c69fdbb0a7,af947b3f-265a-4e06-ab2a-700379b82c0e",
+                    "drive": "b!468XFSrfzk6fejLGn9uwpz97lK9aJgZOqypwA3m4LA6ka6Pf14-9R4-zKCjKPPCs",
+                    "file": "014BJ62TZ6425STXUJHZAY5HWVJQ3EIV7V",
+                    "table": "{41CF0904-C379-4324-9917-776D3B02EFFD}",
+                    "idColumn": "Customer CRN",
+                    "id": "@outputs('Create_item_-_Oil_Delivery')?['body/CustomerCRN']"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                    "operationId": "DeleteItem",
+                    "connectionName": "shared_excelonlinebusiness_1"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "source",
+            "drive",
+            "file",
+            "table",
+            "idColumn",
+            "id"
+          ]
+        },
+        "GetItems": {
+          "displayName": "Get items",
+          "count": 2,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "List_rows_present_in_a_table_-_DEVELOPMENT_ENVIRONMENT",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "source": "sites/prepaypower.sharepoint.com,7259474f-5cee-4b9a-bd5c-72eb5f67c4c3,5c5bdf71-1eb5-4fc4-8bc7-b0be30dd749c",
+                    "drive": "b!T0dZcu5cmku9XHLrX2fEw3HfW1y1HsRPi8ewvjDddJz_C-523x6pQatS6n0qDWDx",
+                    "file": "017FGUGAWAJSLHXP3CMNGJTWNQ3PKIZLH4",
+                    "table": "{CC9B7335-C017-484F-8E26-080D03D2897A}",
+                    "dateTimeFormat": "ISO 8601"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                    "operationId": "GetItems",
+                    "connectionName": "shared_excelonlinebusiness_1"
+                  }
+                },
+                "runtimeConfiguration": {
+                  "paginationPolicy": {
+                    "minimumItemCount": 100000
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "List_rows_present_in_a_table_-_PRODUCTION",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "source": "sites/prepaypower.sharepoint.com,1517afe3-df2a-4ece-9f7a-32c69fdbb0a7,af947b3f-265a-4e06-ab2a-700379b82c0e",
+                    "drive": "b!468XFSrfzk6fejLGn9uwpz97lK9aJgZOqypwA3m4LA6ka6Pf14-9R4-zKCjKPPCs",
+                    "file": "014BJ62TZ6425STXUJHZAY5HWVJQ3EIV7V",
+                    "table": "{41CF0904-C379-4324-9917-776D3B02EFFD}",
+                    "dateTimeFormat": "ISO 8601"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                    "operationId": "GetItems",
+                    "connectionName": "shared_excelonlinebusiness_1"
+                  }
+                },
+                "runtimeConfiguration": {
+                  "paginationPolicy": {
+                    "minimumItemCount": 100000
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "source",
+            "drive",
+            "file",
+            "table",
+            "dateTimeFormat"
+          ]
+        }
+      },
+      "connectionNames": [
+        "shared_excelonlinebusiness_1"
+      ]
+    },
+    "Workflow": {
+      "displayName": "Child flow",
+      "icon": "$(repo-forked)",
+      "count": 1,
+      "operations": {
+        "Workflow": {
+          "displayName": "Workflow",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Get_Fallback_List",
+              "snippet": {
+                "type": "Workflow",
+                "inputs": {
+                  "host": {
+                    "workflowReferenceName": "96cba4e0-b15c-f011-bec1-7c1e52fba4ce"
+                  },
+                  "body": {
+                    "text": "H326370362391792",
+                    "text_1": "@body('Parse_JSON_-_WA_TEMPLATE_Response_')?['proactiveCampaignId']",
+                    "text_2": "@concat('https://make.powerautomate.com/environments/',\r\noutputs('Workflow')['tags']['environmentName'],\r\n'/flows/',\r\noutputs('Workflow')['name'],\r\n'/runs/',\r\noutputs('Workflow')['run']['name'])"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Wait": {
+      "displayName": "Delay",
+      "icon": "$(clock)",
+      "count": 2,
+      "operations": {
+        "Wait": {
+          "displayName": "Wait",
+          "count": 2,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Delay_-_Wait_to_avoid_delete_items_before_creating_list",
+              "snippet": {
+                "type": "Wait",
+                "inputs": {
+                  "interval": {
+                    "count": 1,
+                    "unit": "Minute"
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsAppLiveperson GetFailedProactiveMessages",
+              "actionName": "Delay_1",
+              "snippet": {
+                "type": "Wait",
+                "inputs": {
+                  "interval": {
+                    "count": 30,
+                    "unit": "Minute"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "shared_dta-5f8x8-20sms-5f19cf3490887ebbe4": {
+      "displayName": "dta-5f8x8-20sms-5f19cf3490887ebbe4",
+      "icon": "$(plug)",
+      "count": 1,
+      "operations": {
+        "POST": {
+          "displayName": "HTTP POST",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "POST_-_Send_SMS_Message",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "body/destination": "@body('Filter_Customer_Details_List')[0]['sms']",
+                    "body/source": "PrepayPower",
+                    "body/clientMessageId": "Oil Delivery - Fallback SMS",
+                    "body/text": "Hi @{body('Filter_Customer_Details_List')[0]['CustomerName']}, PrepayPower Oil here! Your oil tank is running low and is currently at @{body('Filter_Customer_Details_List')[0]['TankVolume']} full. Your Delivery date is currently booked for the @{body('Filter_Customer_Details_List')[0]['OfferedDate']} Please let us know if this date suits you or not by clicking here: www.prepaypower.ie/oil-delivery?crn=@{body('Filter_Customer_Details_List')[0]['CustomerCRN']} Please submit response by 2pm to secure this delivery date. Thanks, PrepayPower Oil\n"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_dta-5f8x8-20sms-5f19cf3490887ebbe4",
+                    "operationId": "POST",
+                    "connectionName": "shared_dta-5f8x8-20sms-5f19cf3490887ebbe4"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "body/destination",
+            "body/source",
+            "body/clientMessageId",
+            "body/text"
+          ]
+        }
+      },
+      "connectionNames": [
+        "shared_dta-5f8x8-20sms-5f19cf3490887ebbe4"
+      ]
+    },
+    "SetVariable": {
+      "displayName": "Variables",
+      "icon": "$(symbol-variable)",
+      "count": 2,
+      "operations": {
+        "SetVariable": {
+          "displayName": "SetVariable",
+          "count": 2,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Set_variable__DEVELOPMENT_ENVIRONMENT",
+              "snippet": {
+                "type": "SetVariable",
+                "inputs": {
+                  "name": "List of Items",
+                  "value": "@outputs('List_rows_present_in_a_table_-_DEVELOPMENT_ENVIRONMENT')?['body/value']"
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Set_variable_PRODUCTION",
+              "snippet": {
+                "type": "SetVariable",
+                "inputs": {
+                  "name": "List of Items",
+                  "value": "@outputs('List_rows_present_in_a_table_-_PRODUCTION')?['body/value']"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "shared_office365": {
+      "displayName": "Office 365 Outlook",
+      "icon": "$(mail)",
+      "count": 2,
+      "operations": {
+        "SharedMailboxSendEmailV2": {
+          "displayName": "SharedMailboxSendEmailV2",
+          "count": 2,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+              "actionName": "Send_an_email_from_a_shared_mailbox_(V2)",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "emailMessage/MailboxAddress": "digital.transformation@prepaypower.ie",
+                    "emailMessage/To": "dxteam@prepaypower.ie",
+                    "emailMessage/Subject": "WhatsApp - Liverpeson - Send Oil Refil Template - Failed",
+                    "emailMessage/Body": "<p class=\"editor-paragraph\">WhatsApp - Liverpeson - Send Oil Refil Template - Failed<br><br>@{concat('https://make.powerautomate.com/environments/',\r\noutputs('Workflow')['tags']['environmentName'],\r\n'/flows/',\r\noutputs('Workflow')['name'],\r\n'/runs/',\r\noutputs('Workflow')['run']['name'])}</p><br>",
+                    "emailMessage/Importance": "Normal"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                    "operationId": "SharedMailboxSendEmailV2",
+                    "connectionName": "shared_office365"
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsAppLiveperson OilDelivery ReceiveHTTPrequest",
+              "actionName": "Send_an_email_from_a_shared_mailbox_(V2)",
+              "snippet": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "emailMessage/MailboxAddress": "digital.transformation@prepaypower.ie",
+                    "emailMessage/To": "dxteam@prepaypower.ie",
+                    "emailMessage/Subject": "Oil Delivery - New WhatsApp Reply Received - Unable to Find Customer on Records",
+                    "emailMessage/Body": "<p class=\"editor-paragraph\">We’ve received a new reply on WhatsApp regarding an oil delivery. However, the system couldn’t locate any matching customer details in our records.<br><br>Here are the details:<br>Mobile number: @{body('Parse_JSON')?['userPhone']}<br>Message: @{body('Parse_JSON')?['deliveryNote']} | @{body('Parse_JSON')?['deliveryDate']} | @{body('Parse_JSON')?['status']}</p><br>",
+                    "emailMessage/Importance": "Normal"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                    "operationId": "SharedMailboxSendEmailV2",
+                    "connectionName": "shared_office365"
+                  }
+                }
+              }
+            }
+          ],
+          "paramKeys": [
+            "emailMessage/MailboxAddress",
+            "emailMessage/To",
+            "emailMessage/Subject",
+            "emailMessage/Body",
+            "emailMessage/Importance"
+          ]
+        }
+      },
+      "connectionNames": [
+        "shared_office365"
+      ]
+    },
+    "Response": {
+      "displayName": "Response",
+      "icon": "$(reply)",
+      "count": 2,
+      "operations": {
+        "Response": {
+          "displayName": "Response",
+          "count": 2,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsAppLiveperson GetFailedProactiveMessages",
+              "actionName": "Respond_to_a_Power_App_or_flow",
+              "snippet": {
+                "type": "Response",
+                "kind": "PowerApp",
+                "inputs": {
+                  "statusCode": 200,
+                  "body": {
+                    "response": "@{body('Filter_array')}"
+                  },
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "response": {
+                        "title": "Response",
+                        "x-ms-dynamically-added": true,
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsAppLiveperson GetFailedProactiveMessages",
+              "actionName": "Respond_to_a_Power_App_or_flow_1",
+              "snippet": {
+                "type": "Response",
+                "kind": "PowerApp",
+                "inputs": {
+                  "statusCode": 200,
+                  "body": {
+                    "response": "Nothing Found"
+                  },
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "response": {
+                        "title": "Response",
+                        "x-ms-dynamically-added": true,
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Until": {
+      "displayName": "Do until",
+      "icon": "$(sync)",
+      "count": 1,
+      "operations": {
+        "Until": {
+          "displayName": "Until",
+          "count": 1,
+          "examples": [
+            {
+              "solution": "WhatsAppLiveperson",
+              "flow": "WhatsAppLiveperson GetFailedProactiveMessages",
+              "actionName": "Do_until",
+              "snippet": {
+                "actions": {
+                  "Filter_array": {
+                    "runAfter": {
+                      "Parse_JSON": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "ec9b675f-48d5-4468-ab19-75aecfad4f29"
+                    },
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@body('Parse_JSON')",
+                      "where": "@equals(item()['proactiveCampaignId'],triggerBody()?['text_1'])"
+                    }
+                  },
+                  "Parse_JSON": {
+                    "runAfter": {
+                      "HTTP": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "6927b726-dd1c-4ba6-81bf-e8530c5c6015"
+                    },
+                    "type": "ParseJson",
+                    "inputs": {
+                      "content": "@body('HTTP')['transactions']",
+                      "schema": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "channel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "skill": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "source": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "transactionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "attemptedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "cancelledTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "conversationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "conversationsClosedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "conversationsCreatedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "consumerId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "deliveredTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "eligibleTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "errorCode": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "errorMessage": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "errorSource": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "failedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "inviteTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "optInsTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "optOutsTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "proactiveCampaignId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "readTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "sentTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "initialSkill": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "initialChannel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "handOffId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "ivrNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "skippedTime": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "messageStatus": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "HTTP": {
+                    "runAfter": {
+                      "Extract_Token": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "1bcec984-3b5c-4a3b-a5f3-fd3a93c0d9d5"
+                    },
+                    "type": "Http",
+                    "inputs": {
+                      "method": "POST",
+                      "uri": "https://lo.cx-reporting.liveperson.net/api/account/644555/app/prmsg/transactions/",
+                      "headers": {
+                        "Authorization": "Bearer @{body('Extract_Token')?['access_token']}"
+                      },
+                      "queries": {
+                        "attemptedStartTime": "@{outputs('attemptStart')}",
+                        "attemptedEndTime": "@{outputs('attemptEnd')}",
+                        "v": "2.0"
+                      },
+                      "body": {
+                        "offset": 0,
+                        "limit": 1000,
+                        "filters": {
+                          "channels": [
+                            "wa"
+                          ]
+                        }
+                      }
+                    },
+                    "runtimeConfiguration": {
+                      "contentTransfer": {
+                        "transferMode": "Chunked"
+                      }
+                    }
+                  },
+                  "Delay_1": {
+                    "runAfter": {
+                      "Filter_array": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "d5d9a242-61ba-4cd3-a219-2ebea113f59f"
+                    },
+                    "type": "Wait",
+                    "inputs": {
+                      "interval": {
+                        "count": 30,
+                        "unit": "Minute"
+                      }
+                    }
+                  },
+                  "Extract_Token": {
+                    "runAfter": {
+                      "Get_Bearer_(p)": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "5fc37f09-8a56-460f-86ca-aeb73b3fedfb"
+                    },
+                    "type": "ParseJson",
+                    "inputs": {
+                      "content": "@body('Get_Bearer_(p)')",
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "access_token": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "Get_Bearer_(p)": {
+                    "runAfter": {},
+                    "metadata": {
+                      "operationMetadataId": "54336040-b065-49f4-9516-5cbfcf2ce200"
+                    },
+                    "type": "Http",
+                    "inputs": {
+                      "method": "POST",
+                      "uri": "https://lo.sentinel.liveperson.net/sentinel/api/account/644555/app/token",
+                      "headers": {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                      },
+                      "body": "v=1.0&grant_type=client_credentials&client_id=401d7661-6755-427f-ad97-edaed807846f&client_secret=4am95tsbdt03vi4jol5r5noqjg"
+                    },
+                    "runtimeConfiguration": {
+                      "contentTransfer": {
+                        "transferMode": "Chunked"
+                      }
+                    }
+                  }
+                },
+                "expression": "@greaterOrEquals(length(body('Filter_array')),1)",
+                "limit": {
+                  "count": 60,
+                  "timeout": "PT1H"
+                },
+                "type": "Until"
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "botPatterns": [],
+  "source": "local",
+  "connectionRefs": {
+    "shared_powerbi": {
+      "runtimeSource": "embedded",
+      "connection": {
+        "connectionReferenceLogicalName": "dta_sharedpowerbi_92243"
+      },
+      "api": {
+        "name": "shared_powerbi"
+      }
+    },
+    "shared_sharepointonline": {
+      "runtimeSource": "embedded",
+      "connection": {
+        "connectionReferenceLogicalName": "dta_sharedsharepointonline_698f0"
+      },
+      "api": {
+        "name": "shared_sharepointonline"
+      }
+    },
+    "shared_office365-1": {
+      "runtimeSource": "embedded",
+      "connection": {
+        "connectionReferenceLogicalName": "dta_Outlook"
+      },
+      "api": {
+        "name": "shared_office365"
+      }
+    },
+    "shared_excelonlinebusiness-1": {
+      "runtimeSource": "embedded",
+      "connection": {
+        "connectionReferenceLogicalName": "dta_sharedexcelonlinebusiness_d6407"
+      },
+      "api": {
+        "name": "shared_excelonlinebusiness"
+      }
+    },
+    "shared_powerbi-1": {
+      "runtimeSource": "embedded",
+      "connection": {
+        "connectionReferenceLogicalName": "dta_sharedpowerbi_7edf2"
+      },
+      "api": {
+        "name": "shared_powerbi"
+      }
+    },
+    "shared_sharepointonline-1": {
+      "runtimeSource": "embedded",
+      "connection": {
+        "connectionReferenceLogicalName": "dta_sharedsharepointonline_b503c"
+      },
+      "api": {
+        "name": "shared_sharepointonline"
+      }
+    },
+    "shared_excelonlinebusiness_1": {
+      "runtimeSource": "embedded",
+      "connection": {
+        "connectionReferenceLogicalName": "dta_sharedexcelonlinebusiness_377c4"
+      },
+      "api": {
+        "name": "shared_excelonlinebusiness"
+      }
+    },
+    "shared_dta-5f8x8-20sms-5f19cf3490887ebbe4": {
+      "runtimeSource": "embedded",
+      "connection": {
+        "connectionReferenceLogicalName": "new_shareddta5f8x820sms5f19cf3490887ebbe4_78b79"
+      },
+      "api": {
+        "name": "shared_dta-5f8x8-20sms-5f19cf3490887ebbe4",
+        "logicalName": "dta_5F8x8-20sms"
+      }
+    },
+    "shared_office365": {
+      "runtimeSource": "embedded",
+      "connection": {
+        "connectionReferenceLogicalName": "dta_sharedoffice365_1c70b"
+      },
+      "api": {
+        "name": "shared_office365"
+      }
+    }
+  },
+  "variables": {
+    "List of Customers": {
+      "type": "array",
+      "count": 1
+    },
+    "List of Items": {
+      "type": "array",
+      "count": 1
+    }
+  },
+  "triggers": {
+    "Recurrence": {
+      "count": 3,
+      "flows": [
+        {
+          "solution": "WhatsAppLiveperson",
+          "flow": "PPP Oil Retention OilDelivery Scheduled Getdatafro"
+        },
+        {
+          "solution": "WhatsAppLiveperson",
+          "flow": "WhatsApp Liverperson OilDelivery ArchiveSPlist"
+        },
+        {
+          "solution": "WhatsAppLiveperson",
+          "flow": "WhatsApp Liverpeson SendOilRefilTemplate"
+        }
+      ]
+    },
+    "OpenApiConnection": {
+      "count": 1,
+      "flows": [
+        {
+          "solution": "WhatsAppLiveperson",
+          "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust"
+        }
+      ]
+    },
+    "Request (Button)": {
+      "count": 1,
+      "flows": [
+        {
+          "solution": "WhatsAppLiveperson",
+          "flow": "WhatsAppLiveperson GetFailedProactiveMessages"
+        }
+      ]
+    },
+    "Request (Http)": {
+      "count": 1,
+      "flows": [
+        {
+          "solution": "WhatsAppLiveperson",
+          "flow": "WhatsAppLiveperson OilDelivery ReceiveHTTPrequest"
+        }
+      ]
+    }
+  },
+  "flows": {
+    "WhatsAppLiveperson|PPP Oil Retention OilDelivery Scheduled Getdatafro": {
+      "solution": "WhatsAppLiveperson",
+      "flow": "PPP Oil Retention OilDelivery Scheduled Getdatafro",
+      "trigger": "Recurrence",
+      "connectors": [
+        {
+          "connectorId": "shared_powerbi",
+          "displayName": "Power BI",
+          "operations": [
+            "ExecuteDatasetQuery"
+          ],
+          "count": 1
+        },
+        {
+          "connectorId": "shared_sharepointonline",
+          "displayName": "SharePoint",
+          "operations": [
+            "CreateFile"
+          ],
+          "count": 1
+        },
+        {
+          "connectorId": "shared_office365-1",
+          "displayName": "office365-1",
+          "operations": [
+            "SharedMailboxSendEmailV2"
+          ],
+          "count": 1
+        }
+      ]
+    },
+    "WhatsAppLiveperson|WhatsApp Liverperson OilDelivery ArchiveSPlist": {
+      "solution": "WhatsAppLiveperson",
+      "flow": "WhatsApp Liverperson OilDelivery ArchiveSPlist",
+      "trigger": "Recurrence",
+      "connectors": [
+        {
+          "connectorId": "shared_sharepointonline",
+          "displayName": "SharePoint",
+          "operations": [
+            "GetItems"
+          ],
+          "count": 1
+        }
+      ]
+    },
+    "WhatsAppLiveperson|WhatsApp Liverperson OilDelivery OutreachtoOilCust": {
+      "solution": "WhatsAppLiveperson",
+      "flow": "WhatsApp Liverperson OilDelivery OutreachtoOilCust",
+      "trigger": "OpenApiConnection",
+      "connectors": [
+        {
+          "connectorId": "shared_sharepointonline",
+          "displayName": "SharePoint",
+          "operations": [
+            "GetOnNewFileItems",
+            "PatchFileItem",
+            "CopyFileAsync",
+            "GetFileItem"
+          ],
+          "count": 6
+        },
+        {
+          "connectorId": "shared_excelonlinebusiness-1",
+          "displayName": "excelonlinebusiness-1",
+          "operations": [
+            "GetTables",
+            "GetItems"
+          ],
+          "count": 2
+        },
+        {
+          "connectorId": "shared_powerbi-1",
+          "displayName": "powerbi-1",
+          "operations": [
+            "ExecuteDatasetQuery"
+          ],
+          "count": 1
+        },
+        {
+          "connectorId": "shared_office365-1",
+          "displayName": "office365-1",
+          "operations": [
+            "SharedMailboxSendEmailV2"
+          ],
+          "count": 2
+        }
+      ]
+    },
+    "WhatsAppLiveperson|WhatsApp Liverpeson SendOilRefilTemplate": {
+      "solution": "WhatsAppLiveperson",
+      "flow": "WhatsApp Liverpeson SendOilRefilTemplate",
+      "trigger": "Recurrence",
+      "connectors": [
+        {
+          "connectorId": "shared_sharepointonline-1",
+          "displayName": "sharepointonline-1",
+          "operations": [
+            "PostItem"
+          ],
+          "count": 2
+        },
+        {
+          "connectorId": "shared_excelonlinebusiness_1",
+          "displayName": "excelonlinebusiness 1",
+          "operations": [
+            "DeleteItem",
+            "GetItems"
+          ],
+          "count": 3
+        },
+        {
+          "connectorId": "shared_dta-5f8x8-20sms-5f19cf3490887ebbe4",
+          "displayName": "dta-5f8x8-20sms-5f19cf3490887ebbe4",
+          "operations": [
+            "POST"
+          ],
+          "count": 1
+        },
+        {
+          "connectorId": "shared_office365",
+          "displayName": "Office 365 Outlook",
+          "operations": [
+            "SharedMailboxSendEmailV2"
+          ],
+          "count": 1
+        }
+      ]
+    },
+    "WhatsAppLiveperson|WhatsAppLiveperson GetFailedProactiveMessages": {
+      "solution": "WhatsAppLiveperson",
+      "flow": "WhatsAppLiveperson GetFailedProactiveMessages",
+      "trigger": "Request (Button)",
+      "connectors": []
+    },
+    "WhatsAppLiveperson|WhatsAppLiveperson OilDelivery ReceiveHTTPrequest": {
+      "solution": "WhatsAppLiveperson",
+      "flow": "WhatsAppLiveperson OilDelivery ReceiveHTTPrequest",
+      "trigger": "Request (Http)",
+      "connectors": [
+        {
+          "connectorId": "shared_sharepointonline-1",
+          "displayName": "sharepointonline-1",
+          "operations": [
+            "GetItems",
+            "PatchItem"
+          ],
+          "count": 3
+        },
+        {
+          "connectorId": "shared_office365",
+          "displayName": "Office 365 Outlook",
+          "operations": [
+            "SharedMailboxSendEmailV2"
+          ],
+          "count": 1
+        }
+      ]
+    }
+  }
+}
